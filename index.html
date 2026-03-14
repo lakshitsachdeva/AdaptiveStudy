@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AdaptiveStudy</title>
+    <link rel="stylesheet" href="style.css" />
+    <script src="js/study-content.js" defer></script>
+    <script src="js/cognitive-engine.js" defer></script>
+    <script src="js/ui-adapter.js" defer></script>
+    <script src="js/dashboard.js" defer></script>
+  </head>
+  <body id="adaptive-study-app" class="adaptive-study-shell app-shell load-medium">
+    <svg
+      id="adaptive-study-filters"
+      class="app-shell-filter-defs"
+      width="0"
+      height="0"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <defs>
+        <filter id="noise">
+          <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" stitchTiles="stitch"></feTurbulence>
+        </filter>
+      </defs>
+    </svg>
+    <header id="top-navbar" class="top-navbar">
+      <div id="navbar-mobile-controls" class="navbar-mobile-controls">
+        <button
+          id="btn-mobile-menu"
+          class="mobile-nav-button hamburger-button"
+          type="button"
+          aria-controls="left-sidebar-content"
+          aria-expanded="false"
+        >
+          <span class="sr-only">Toggle sidebar</span>
+          <span class="hamburger-line"></span>
+          <span class="hamburger-line"></span>
+          <span class="hamburger-line"></span>
+        </button>
+        <button
+          id="btn-mobile-panel"
+          class="mobile-nav-button mobile-panel-button"
+          type="button"
+          aria-controls="right-panel-content"
+          aria-expanded="false"
+        >
+          Insights
+        </button>
+      </div>
+
+      <div id="navbar-branding" class="navbar-branding">
+        <a href="#" id="app-logo-link" class="app-logo-link" aria-label="AdaptiveStudy home">
+          <span id="app-logo-text" class="app-logo-text">AdaptiveStudy</span>
+        </a>
+      </div>
+
+      <div id="navbar-status-widgets" class="navbar-status-widgets">
+        <section
+          id="mental-load-widget"
+          class="mental-load-widget load-medium"
+          aria-labelledby="mental-load-heading"
+          style="--load-pct: 62; --load-color: var(--accent-amber);"
+        >
+          <h2 id="mental-load-heading" class="sr-only">Mental Load</h2>
+          <div id="mental-load-gauge-wrapper" class="mental-load-gauge-wrapper">
+            <svg
+              id="mental-load-gauge"
+              class="mental-load-gauge"
+              viewBox="0 0 60 60"
+              role="img"
+              aria-labelledby="mental-load-gauge-label mental-load-gauge-value"
+            >
+              <title id="mental-load-gauge-label">Mental Load</title>
+              <desc id="mental-load-gauge-value">Current mental load score is 62 out of 100.</desc>
+              <circle
+                id="mental-load-gauge-track"
+                class="mental-load-gauge-track"
+                cx="30"
+                cy="30"
+                r="26"
+              ></circle>
+              <circle
+                id="mental-load-gauge-fill"
+                class="mental-load-gauge-fill"
+                cx="30"
+                cy="30"
+                r="26"
+              ></circle>
+              <text
+                id="mental-load-score"
+                class="mental-load-score"
+                x="30"
+                y="32"
+                text-anchor="middle"
+                dominant-baseline="middle"
+              >
+                62
+              </text>
+            </svg>
+            <div id="mental-load-text-block" class="mental-load-text-block">
+              <span id="mental-load-label" class="mental-load-label">Mental Load</span>
+              <span id="mental-load-range-label" class="mental-load-range-label">Moderate</span>
+            </div>
+          </div>
+        </section>
+
+        <span id="study-mode-badge" class="study-mode-badge mode-focus" aria-live="polite">
+          Focus Mode
+        </span>
+        <button id="btn-demo" class="navbar-demo-button" type="button" aria-pressed="false">
+          Demo Mode
+        </button>
+        <span id="demo-badge" class="demo-mode-badge" hidden>DEMO</span>
+      </div>
+    </header>
+
+    <div id="dashboard-layout" class="dashboard-layout">
+      <aside id="left-sidebar" class="left-sidebar" aria-labelledby="left-sidebar-title">
+        <div id="left-sidebar-header" class="left-sidebar-header">
+          <h1 id="left-sidebar-title" class="left-sidebar-title">Study Controls</h1>
+          <button
+            id="btn-toggle-sidebar"
+            class="panel-toggle-button"
+            type="button"
+            aria-controls="left-sidebar-content"
+            aria-expanded="true"
+          >
+            Toggle Sidebar
+          </button>
+        </div>
+
+        <div id="left-sidebar-content" class="left-sidebar-content">
+          <section id="todays-topics-section" class="sidebar-section todays-topics-section">
+            <h2 id="todays-topics-heading" class="sidebar-section-heading">Today's Topics</h2>
+            <nav id="topics-navigation" class="topics-navigation" aria-labelledby="todays-topics-heading">
+              <ul id="topics-list" class="topics-list">
+                <li class="topics-list-item">
+                  <button
+                    id="topic-pill-biology"
+                    class="topic-pill-button"
+                    type="button"
+                    data-topic="Biology"
+                  >
+                    Biology
+                  </button>
+                </li>
+                <li class="topics-list-item">
+                  <button
+                    id="topic-pill-physics"
+                    class="topic-pill-button"
+                    type="button"
+                    data-topic="Physics"
+                  >
+                    Physics
+                  </button>
+                </li>
+                <li class="topics-list-item">
+                  <button
+                    id="topic-pill-history"
+                    class="topic-pill-button"
+                    type="button"
+                    data-topic="History"
+                  >
+                    History
+                  </button>
+                </li>
+                <li class="topics-list-item">
+                  <button
+                    id="topic-pill-math"
+                    class="topic-pill-button"
+                    type="button"
+                    data-topic="Math"
+                  >
+                    Math
+                  </button>
+                </li>
+                <li class="topics-list-item">
+                  <button
+                    id="topic-pill-literature"
+                    class="topic-pill-button"
+                    type="button"
+                    data-topic="Literature"
+                  >
+                    Literature
+                  </button>
+                </li>
+              </ul>
+            </nav>
+          </section>
+
+          <section id="progress-section" class="sidebar-section progress-section">
+            <h2 id="progress-heading" class="sidebar-section-heading">Progress</h2>
+            <ul id="progress-ring-list" class="progress-ring-list">
+              <li id="progress-item-biology" class="progress-ring-item">
+                <button
+                  id="progress-ring-button-biology"
+                  class="progress-ring-button"
+                  type="button"
+                  aria-label="Biology progress 78 percent"
+                >
+                  <svg
+                    id="progress-ring-biology"
+                    class="mini-progress-ring"
+                    viewBox="0 0 48 48"
+                    role="img"
+                    aria-hidden="true"
+                  >
+                    <circle class="mini-progress-ring-track" cx="24" cy="24" r="18"></circle>
+                    <circle
+                      class="mini-progress-ring-fill"
+                      cx="24"
+                      cy="24"
+                      r="18"
+                      data-progress-value="78"
+                    ></circle>
+                  </svg>
+                  <span id="progress-label-biology" class="progress-ring-label">Biology 78%</span>
+                </button>
+              </li>
+              <li id="progress-item-physics" class="progress-ring-item">
+                <button
+                  id="progress-ring-button-physics"
+                  class="progress-ring-button"
+                  type="button"
+                  aria-label="Physics progress 64 percent"
+                >
+                  <svg
+                    id="progress-ring-physics"
+                    class="mini-progress-ring"
+                    viewBox="0 0 48 48"
+                    role="img"
+                    aria-hidden="true"
+                  >
+                    <circle class="mini-progress-ring-track" cx="24" cy="24" r="18"></circle>
+                    <circle
+                      class="mini-progress-ring-fill"
+                      cx="24"
+                      cy="24"
+                      r="18"
+                      data-progress-value="64"
+                    ></circle>
+                  </svg>
+                  <span id="progress-label-physics" class="progress-ring-label">Physics 64%</span>
+                </button>
+              </li>
+              <li id="progress-item-history" class="progress-ring-item">
+                <button
+                  id="progress-ring-button-history"
+                  class="progress-ring-button"
+                  type="button"
+                  aria-label="History progress 51 percent"
+                >
+                  <svg
+                    id="progress-ring-history"
+                    class="mini-progress-ring"
+                    viewBox="0 0 48 48"
+                    role="img"
+                    aria-hidden="true"
+                  >
+                    <circle class="mini-progress-ring-track" cx="24" cy="24" r="18"></circle>
+                    <circle
+                      class="mini-progress-ring-fill"
+                      cx="24"
+                      cy="24"
+                      r="18"
+                      data-progress-value="51"
+                    ></circle>
+                  </svg>
+                  <span id="progress-label-history" class="progress-ring-label">History 51%</span>
+                </button>
+              </li>
+              <li id="progress-item-math" class="progress-ring-item">
+                <button
+                  id="progress-ring-button-math"
+                  class="progress-ring-button"
+                  type="button"
+                  aria-label="Math progress 83 percent"
+                >
+                  <svg
+                    id="progress-ring-math"
+                    class="mini-progress-ring"
+                    viewBox="0 0 48 48"
+                    role="img"
+                    aria-hidden="true"
+                  >
+                    <circle class="mini-progress-ring-track" cx="24" cy="24" r="18"></circle>
+                    <circle
+                      class="mini-progress-ring-fill"
+                      cx="24"
+                      cy="24"
+                      r="18"
+                      data-progress-value="83"
+                    ></circle>
+                  </svg>
+                  <span id="progress-label-math" class="progress-ring-label">Math 83%</span>
+                </button>
+              </li>
+              <li id="progress-item-literature" class="progress-ring-item">
+                <button
+                  id="progress-ring-button-literature"
+                  class="progress-ring-button"
+                  type="button"
+                  aria-label="Literature progress 69 percent"
+                >
+                  <svg
+                    id="progress-ring-literature"
+                    class="mini-progress-ring"
+                    viewBox="0 0 48 48"
+                    role="img"
+                    aria-hidden="true"
+                  >
+                    <circle class="mini-progress-ring-track" cx="24" cy="24" r="18"></circle>
+                    <circle
+                      class="mini-progress-ring-fill"
+                      cx="24"
+                      cy="24"
+                      r="18"
+                      data-progress-value="69"
+                    ></circle>
+                  </svg>
+                  <span id="progress-label-literature" class="progress-ring-label">Literature 69%</span>
+                </button>
+              </li>
+            </ul>
+          </section>
+
+          <section id="session-timer-section" class="sidebar-section session-timer-section">
+            <h2 id="session-timer-heading" class="sidebar-section-heading">Session Timer</h2>
+            <div
+              id="session-timer"
+              class="session-timer-display"
+              role="timer"
+              aria-live="polite"
+            >
+              00:42:18
+            </div>
+          </section>
+        </div>
+      </aside>
+
+      <main id="main-content" class="main-content">
+        <section
+          id="active-study-block"
+          class="content-card active-study-block main-card"
+          aria-labelledby="active-study-block-heading"
+        >
+          <div id="active-study-block-header" class="content-card-header">
+            <h2 id="active-study-block-heading" class="content-card-heading">Active Study Block</h2>
+          </div>
+
+          <article id="flashcard" class="flashcard-component flashcard" aria-labelledby="flashcard-question-text">
+            <div id="flashcard-inner" class="flashcard-inner" data-flashcard-state="front">
+              <section id="flashcard-front" class="flashcard-face flashcard-front-face" aria-label="Flashcard front">
+                <p id="flashcard-question-label" class="flashcard-face-label flashcard-subject-badge">Question</p>
+                <h3 id="flashcard-question-text" class="flashcard-content-text">
+                  What is the role of mitochondria in a eukaryotic cell?
+                </h3>
+              </section>
+
+              <section id="flashcard-back" class="flashcard-face flashcard-back-face" aria-label="Flashcard back">
+                <p id="flashcard-answer-label" class="flashcard-face-label">Answer</p>
+                <p id="flashcard-answer-text" class="flashcard-content-text">
+                  Mitochondria generate most of the cell's ATP through cellular respiration and help regulate metabolism.
+                </p>
+              </section>
+            </div>
+
+            <div id="flashcard-controls" class="flashcard-controls">
+              <button id="btn-flip" class="flashcard-flip-button" type="button">
+                Flip Card
+              </button>
+            </div>
+          </article>
+
+          <section id="study-notes-section" class="study-notes-section" aria-labelledby="study-notes-heading">
+            <h3 id="study-notes-heading" class="study-notes-heading">Study Notes</h3>
+            <label id="study-notes-label" class="sr-only" for="study-notes">
+              Study notes textarea
+            </label>
+            <textarea
+              id="study-notes"
+              class="study-notes-textarea"
+              name="study-notes"
+              rows="8"
+              placeholder="Begin writing your notes..."
+            ></textarea>
+          </section>
+
+          <section id="study-action-section" class="study-action-section" aria-label="Study actions">
+            <div id="study-action-buttons" class="study-action-buttons">
+              <button id="btn-learned" class="study-action-button mark-learned-button" type="button">
+                Mark as Learned
+              </button>
+              <button id="btn-review" class="study-action-button review-later-button" type="button">
+                Review Later
+              </button>
+              <button id="btn-skip" class="study-action-button skip-card-button" type="button">
+                Skip
+              </button>
+            </div>
+          </section>
+        </section>
+      </main>
+
+      <aside id="right-panel" class="right-panel" aria-labelledby="right-panel-title">
+        <div id="right-panel-header" class="right-panel-header">
+          <h2 id="right-panel-title" class="right-panel-title">Insights</h2>
+          <button
+            id="btn-toggle-panel"
+            class="panel-toggle-button"
+            type="button"
+            aria-controls="right-panel-content"
+            aria-expanded="true"
+          >
+            Toggle Panel
+          </button>
+        </div>
+
+        <div id="right-panel-content" class="right-panel-content">
+          <section
+            id="cognitive-load-monitor-section"
+            class="right-panel-section cognitive-load-monitor-section"
+            aria-labelledby="cognitive-load-monitor-heading"
+          >
+            <h3 id="cognitive-load-monitor-heading" class="right-panel-section-heading">
+              Cognitive Load Monitor
+            </h3>
+
+            <ul id="load-metrics-list" class="load-metrics-list">
+              <li id="metric-row-cursor-entropy" class="load-metric-row">
+                <div id="metric-header-cursor-entropy" class="load-metric-header">
+                  <span id="metric-icon-cursor-entropy" class="load-metric-icon" aria-hidden="true">🖱️</span>
+                  <span id="metric-label-cursor-entropy" class="load-metric-label">Cursor Entropy</span>
+                  <span id="value-cursor" class="load-metric-value">38</span>
+                </div>
+                <div
+                  id="metric-bar-cursor-entropy"
+                  class="load-metric-bar"
+                  role="progressbar"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-valuenow="38"
+                  aria-labelledby="metric-label-cursor-entropy"
+                >
+                  <span
+                    id="bar-cursor"
+                    class="load-metric-fill"
+                    style="width: 38%;"
+                  ></span>
+                </div>
+              </li>
+
+              <li id="metric-row-hesitation-index" class="load-metric-row">
+                <div id="metric-header-hesitation-index" class="load-metric-header">
+                  <span id="metric-icon-hesitation-index" class="load-metric-icon" aria-hidden="true">⏱️</span>
+                  <span id="metric-label-hesitation-index" class="load-metric-label">Hesitation Index</span>
+                  <span id="value-hesitation" class="load-metric-value">57</span>
+                </div>
+                <div
+                  id="metric-bar-hesitation-index"
+                  class="load-metric-bar"
+                  role="progressbar"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-valuenow="57"
+                  aria-labelledby="metric-label-hesitation-index"
+                >
+                  <span
+                    id="bar-hesitation"
+                    class="load-metric-fill"
+                    style="width: 57%;"
+                  ></span>
+                </div>
+              </li>
+
+              <li id="metric-row-error-rate" class="load-metric-row">
+                <div id="metric-header-error-rate" class="load-metric-header">
+                  <span id="metric-icon-error-rate" class="load-metric-icon" aria-hidden="true">⌫</span>
+                  <span id="metric-label-error-rate" class="load-metric-label">Error Rate</span>
+                  <span id="value-error" class="load-metric-value">21</span>
+                </div>
+                <div
+                  id="metric-bar-error-rate"
+                  class="load-metric-bar"
+                  role="progressbar"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-valuenow="21"
+                  aria-labelledby="metric-label-error-rate"
+                >
+                  <span
+                    id="bar-error"
+                    class="load-metric-fill"
+                    style="width: 21%;"
+                  ></span>
+                </div>
+              </li>
+
+              <li id="metric-row-scroll-rhythm" class="load-metric-row">
+                <div id="metric-header-scroll-rhythm" class="load-metric-header">
+                  <span id="metric-icon-scroll-rhythm" class="load-metric-icon" aria-hidden="true">📜</span>
+                  <span id="metric-label-scroll-rhythm" class="load-metric-label">Scroll Rhythm</span>
+                  <span id="value-scroll" class="load-metric-value">49</span>
+                </div>
+                <div
+                  id="metric-bar-scroll-rhythm"
+                  class="load-metric-bar"
+                  role="progressbar"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  aria-valuenow="49"
+                  aria-labelledby="metric-label-scroll-rhythm"
+                >
+                  <span
+                    id="bar-scroll"
+                    class="load-metric-fill"
+                    style="width: 49%;"
+                  ></span>
+                </div>
+              </li>
+            </ul>
+          </section>
+
+          <section id="load-history-section" class="right-panel-section load-history-section" aria-labelledby="load-history-heading">
+            <h3 id="load-history-heading" class="right-panel-section-heading">Load History</h3>
+            <div id="sparkline-canvas" class="sparkline-canvas" aria-label="Load history sparkline area"></div>
+          </section>
+        </div>
+      </aside>
+    </div>
+
+    <footer id="bottom-status-bar" class="bottom-status-bar">
+      <div id="status-bar-left" class="status-bar-segment status-bar-left">Adaptive Mode: Active</div>
+      <div id="status-bar-center" class="status-bar-segment status-bar-center">Optimal Focus</div>
+      <div id="status-bar-right" class="status-bar-segment status-bar-right">Session Quality: Good</div>
+    </footer>
+  </body>
+</html>
