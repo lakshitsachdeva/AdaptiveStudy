@@ -75,6 +75,7 @@
       this.sparklineGradientStops = null;
       this.cursorTarget = { x: -999, y: -999 };
       this.cursorPosition = { x: -999, y: -999 };
+      this.lastMasterySignature = "";
 
       if (this.lowPowerDevice) {
         this.body.classList.add("performance-mode");
@@ -455,8 +456,10 @@
       if (this.statTiles.calmTime) {
         const value = Number(stats.calmModePct || stats.calmPct || 0);
         const fromValue = Number(this.statTiles.calmTime.dataset.value || 0);
-        this.statTiles.calmTime.dataset.value = String(value);
-        this.animateNumber(this.statTiles.calmTime, fromValue, value, 600, (val) => Math.round(val) + "%");
+        if (Math.round(fromValue) !== Math.round(value)) {
+          this.statTiles.calmTime.dataset.value = String(value);
+          this.animateNumber(this.statTiles.calmTime, fromValue, value, 600, (val) => Math.round(val) + "%");
+        }
       }
     }
 
@@ -473,12 +476,17 @@
       if (this.researchTiles.calm) {
         const calmPct = Number(stats.calmModePct || stats.calmPct || 0);
         const fromValue = Number(this.researchTiles.calm.dataset.value || 0);
-        this.researchTiles.calm.dataset.value = String(calmPct);
-        this.animateNumber(this.researchTiles.calm, fromValue, calmPct, 600, (val) => Math.round(val) + "%");
+        if (Math.round(fromValue) !== Math.round(calmPct)) {
+          this.researchTiles.calm.dataset.value = String(calmPct);
+          this.animateNumber(this.researchTiles.calm, fromValue, calmPct, 600, (val) => Math.round(val) + "%");
+        }
       }
 
       if (this.researchTiles.sessionTime) {
-        this.researchTiles.sessionTime.textContent = this.formatDuration(stats.sessionDurationMs || 0);
+        const nextText = this.formatDuration(stats.sessionDurationMs || 0);
+        if (this.researchTiles.sessionTime.textContent !== nextText) {
+          this.researchTiles.sessionTime.textContent = nextText;
+        }
       }
     }
 
@@ -487,6 +495,12 @@
         return;
       }
 
+      const signature = JSON.stringify(subjectProgress);
+      if (signature === this.lastMasterySignature) {
+        return;
+      }
+
+      this.lastMasterySignature = signature;
       this.masteryBarList.replaceChildren();
 
       Object.keys(subjectProgress).forEach((subject) => {
@@ -635,6 +649,11 @@
 
       const safeValue = Number(value) || 0;
       const fromValue = Number(element.dataset.value || 0);
+
+      if (Math.round(fromValue) === Math.round(safeValue)) {
+        return;
+      }
+
       element.dataset.value = String(safeValue);
       this.animateNumber(element, fromValue, safeValue, 600, (current) => String(Math.round(current)));
     }

@@ -54,6 +54,8 @@
     let userName = loadUserName();
     let sessionEnded = false;
     let calibrationUiResolved = false;
+    let lastSidebarUiUpdateAt = 0;
+    const sidebarUiIntervalMs = 1500;
 
     engine.onCalibrationComplete((data) => {
       if (calibrationUiResolved) {
@@ -81,6 +83,7 @@
     observeLayoutState();
     startRealPolling();
     initializeWelcome();
+    ui.updateMasteryBars(content.getSubjectMastery());
     analytics.logEvent("card_seen", { subject: content.getCurrentCard()?.subject || null });
 
     document.getElementById("btn-tour")?.addEventListener("click", () => {
@@ -222,10 +225,16 @@
 
       ui.updateSparkline(scoreHistory);
       analytics.logLoadSample(metrics.composite, metrics.state);
-      ui.updateSessionStats(analytics.getStats());
-      ui.updateResearchOverlay(Object.assign({}, analytics.getStats(), content.getSessionSummary()));
-      ui.updateMasteryBars(content.getSubjectMastery());
+      const stats = analytics.getStats();
+      ui.updateSessionStats(stats);
+      ui.updateResearchOverlay(Object.assign({}, stats, content.getSessionSummary()));
       ui.updateConfidence(engine.getConfidence());
+
+      const now = Date.now();
+      if (now - lastSidebarUiUpdateAt >= sidebarUiIntervalMs) {
+        lastSidebarUiUpdateAt = now;
+        ui.updateMasteryBars(content.getSubjectMastery());
+      }
     }
 
     function wireButtons() {
@@ -429,6 +438,7 @@
         const card = event.detail?.card;
         if (card) {
           analytics.logEvent("card_learned", { cardId: card.id });
+          ui.updateMasteryBars(content.getSubjectMastery());
         }
       });
 
@@ -436,7 +446,12 @@
         const card = event.detail?.card;
         if (card) {
           analytics.logEvent("card_review", { cardId: card.id });
+          ui.updateMasteryBars(content.getSubjectMastery());
         }
+      });
+
+      window.addEventListener("adaptivestudy:confidence-recorded", () => {
+        ui.updateMasteryBars(content.getSubjectMastery());
       });
     }
 
