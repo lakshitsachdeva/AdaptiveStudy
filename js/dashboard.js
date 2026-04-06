@@ -56,6 +56,7 @@
     let calibrationUiResolved = false;
     let lastSidebarUiUpdateAt = 0;
     const sidebarUiIntervalMs = 1500;
+    const localEnvironment = isLocalEnvironment();
 
     engine.onCalibrationComplete((data) => {
       if (calibrationUiResolved) {
@@ -81,6 +82,7 @@
     updateTopicPillCounts();
     syncPanelButtonStates();
     observeLayoutState();
+    enableLocalSafeMode();
     startRealPolling();
     initializeWelcome();
     ui.updateMasteryBars(content.getSubjectMastery());
@@ -90,7 +92,7 @@
       tour.start();
     });
 
-    if (tour.shouldShow() && userName) {
+    if (!localEnvironment && tour.shouldShow() && userName) {
       window.setTimeout(() => tour.start(), 1800);
     }
 
@@ -142,6 +144,25 @@
         attributes: true,
         attributeFilter: ["class"]
       });
+    }
+
+    function isLocalEnvironment() {
+      const hostname = window.location.hostname;
+      return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "";
+    }
+
+    function enableLocalSafeMode() {
+      if (!localEnvironment) {
+        return;
+      }
+
+      document.body.classList.add("performance-mode");
+      calibrationUiResolved = true;
+      analytics.calibrated = true;
+      if (typeof engine.completeCalibration === "function" && !engine.calibrationComplete) {
+        engine.completeCalibration();
+      }
+      ui.showCalibrationState(100, true);
     }
 
     function startSessionTimer() {
@@ -806,7 +827,7 @@
 
       ui.showToast("Welcome, " + userName + ". Let's study well.", "success");
 
-      if (tour.shouldShow()) {
+      if (!localEnvironment && tour.shouldShow()) {
         window.setTimeout(() => tour.start(), 700);
       }
     }
@@ -824,7 +845,7 @@
         welcomeModal.hidden = true;
       }
 
-      if (tour.shouldShow()) {
+      if (!localEnvironment && tour.shouldShow()) {
         window.setTimeout(() => tour.start(), 700);
       }
     }

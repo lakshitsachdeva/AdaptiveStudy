@@ -10,8 +10,18 @@
       this.status = document.getElementById("chat-status");
       this.history = [];
       this.pending = false;
+      this.localEnvironment =
+        window.location.hostname === "localhost" ||
+        window.location.hostname === "127.0.0.1" ||
+        window.location.hostname === "";
 
       if (!this.form || !this.input || !this.messages || !this.sendButton) {
+        return;
+      }
+
+      if (this.localEnvironment) {
+        this.setBusyState(true, "Chat is disabled on localhost. Use the deployed app for Gemini responses.");
+        this.input.placeholder = "Chat is available on the deployed Vercel version.";
         return;
       }
 
