@@ -3,16 +3,17 @@
 
   class CognitiveEngine {
     constructor() {
-      // Shared timing controls for sampling, metric refresh, and composite smoothing.
       this.metricTickMs = 500;
       this.cursorSampleIntervalMs = 50;
       this.compositeAlpha = 0.3;
+      this.noiseLevel = 2;
+      this.demoMode = false;
 
       this.cursorEntropy = 0;
       this.hesitationIndex = 0;
       this.errorRate = 0;
       this.scrollRhythm = 0;
-      this.compositeScore = null;
+      this.compositeScore = 0;
 
       this.engineStartedAt = this.now();
       this.lastMetricsUpdateAt = 0;
@@ -20,6 +21,8 @@
       this.lastMouseMoveAt = this.engineStartedAt;
       this.lastHoverPauseMark = 0;
       this.lastInteractionAt = null;
+      this.lastState = null;
+      this.lastStateTickAt = 0;
 
       this.cursorPositions = [];
       this.interactionIntervals = [];
@@ -27,9 +30,37 @@
       this.deleteKeyEvents = [];
       this.correctionEvents = [];
       this.scrollEvents = [];
-
       this.textSessions = new WeakMap();
       this.scrollTrackers = new Map();
+
+      this.eventCounts = {
+        mouseMove: 0,
+        click: 0,
+        keystroke: 0,
+        scroll: 0
+      };
+
+      this.sessionStartTime = null;
+      this.sessionMin = null;
+      this.sessionMax = null;
+      this.sessionAvg = 0;
+      this.sessionAvgInitialized = false;
+      this.sessionScoreHistory = [];
+      this.timeInLow = 0;
+      this.timeInMedium = 0;
+      this.timeInHigh = 0;
+      this.modeSwitchCount = 0;
+
+      this.isCalibrating = false;
+      this.calibrationComplete = false;
+      this.calibrationProgress = 0;
+      this.calibrationStartedAt = null;
+      this.calibrationDurationMs = 15000;
+      this.calibrationSamples = [];
+      this.baselineCursor = 0;
+      this.baselineHesitation = 0;
+      this.baselineScroll = 0;
+      this.calibrationCallbacks = [];
 
       this.pollingIntervalId = null;
       this.metricIntervalId = null;
@@ -54,7 +85,6 @@
       document.addEventListener("scroll", this.handleScroll, { passive: true, capture: true });
 
       if (typeof window !== "undefined") {
-        // Keep the metrics alive even when the user is idle so the dashboard feels responsive.
         this.metricIntervalId = window.setInterval(() => {
           this.refreshMetrics();
         }, this.metricTickMs);
@@ -63,6 +93,7 @@
 
     handleMouseMove(event) {
       const timestamp = this.now();
+      this.eventCounts.mouseMove += 1;
 
       if (timestamp - this.lastMouseSampleAt < this.cursorSampleIntervalMs) {
         this.lastMouseMoveAt = timestamp;
@@ -86,12 +117,15 @@
     }
 
     handleClick() {
+      this.eventCounts.click += 1;
       this.recordInteraction();
     }
 
     handleKeyDown(event) {
       const timestamp = this.recordInteraction();
       const target = event.target;
+
+      this.eventCounts.keystroke += 1;
 
       if (event.key === "Backspace" || event.key === "Delete") {
         this.deleteKeyEvents.push(timestamp);
@@ -112,6 +146,8 @@
       const timestamp = this.now();
       const target = this.resolveScrollTarget(event.target);
 
+      this.eventCounts.scroll += 1;
+
       if (!target) {
         return;
       }
@@ -129,7 +165,6 @@
 
       const delta = currentPosition - previousState.position;
       const deltaTime = Math.max(1, timestamp - previousState.timestamp);
-
       previousState.position = currentPosition;
       previousState.timestamp = timestamp;
 
@@ -167,7 +202,6 @@
         session.typedSinceDelete = 0;
       }
 
-      // Fresh typing starts a new correction burst window.
       session.deleteStreak = 0;
       session.correctionBurstActive = false;
       session.typedSinceDelete += 1;
@@ -191,7 +225,6 @@
       } else {
         session.deleteStreak = 0;
         session.correctionBurstActive = false;
-        session.typedSinceDelete = Math.max(0, session.typedSinceDelete - 1);
       }
 
       session.lastDeleteAt = timestamp;
@@ -208,32 +241,36 @@
       this.pruneEventWindows(timestamp);
       this.registerHoverPause(timestamp);
 
-      // Each sensor gets a small amount of noise and local smoothing so values do not feel frozen.
+      const rawCursor = this.computeCursorEntropy(timestamp);
+      const rawHesitation = this.computeHesitationIndex(timestamp);
+      const rawError = this.computeErrorRate();
+      const rawScroll = this.computeScrollRhythm(timestamp);
+
+      if (this.isCalibrating && !this.calibrationComplete) {
+        this.captureCalibrationSample(rawCursor, rawHesitation, rawScroll, timestamp);
+      }
+
+      const cursorBase = this.calibrationComplete ? this.baselineCursor : 0;
+      const hesitationBase = this.calibrationComplete ? this.baselineHesitation : 0;
+      const scrollBase = this.calibrationComplete ? this.baselineScroll : 0;
+
       this.cursorEntropy = this.smoothSensorValue(
         this.cursorEntropy,
-        this.applyNoise(this.computeCursorEntropy(timestamp)),
+        this.applyNoise(this.clamp(rawCursor - cursorBase + 12, 0, 100)),
         0.35
       );
-
       this.hesitationIndex = this.smoothSensorValue(
         this.hesitationIndex,
-        this.applyNoise(this.computeHesitationIndex(timestamp)),
+        this.applyNoise(this.clamp(rawHesitation - hesitationBase + 12, 0, 100)),
         0.3
       );
-
-      this.errorRate = this.smoothSensorValue(
-        this.errorRate,
-        this.applyNoise(this.computeErrorRate()),
-        0.4
-      );
-
+      this.errorRate = this.smoothSensorValue(this.errorRate, this.applyNoise(rawError), 0.4);
       this.scrollRhythm = this.smoothSensorValue(
         this.scrollRhythm,
-        this.applyNoise(this.computeScrollRhythm(timestamp)),
+        this.applyNoise(this.clamp(rawScroll - scrollBase + 10, 0, 100)),
         0.35
       );
 
-      // Composite load uses the product weights from the spec and an EMA to avoid jumpy UI.
       const rawComposite =
         this.cursorEntropy * 0.25 +
         this.hesitationIndex * 0.35 +
@@ -241,12 +278,103 @@
         this.scrollRhythm * 0.15;
 
       this.compositeScore =
-        this.compositeScore === null
+        this.compositeScore === null || Number.isNaN(this.compositeScore)
           ? rawComposite
           : this.compositeAlpha * rawComposite + (1 - this.compositeAlpha) * this.compositeScore;
 
       this.compositeScore = this.clamp(this.compositeScore, 0, 100);
       this.lastMetricsUpdateAt = timestamp;
+
+      if (this.calibrationComplete && this.sessionStartTime !== null) {
+        this.updateSessionStats(timestamp);
+      }
+    }
+
+    captureCalibrationSample(cursor, hesitation, scroll, timestamp) {
+      if (this.calibrationStartedAt === null) {
+        this.calibrationStartedAt = timestamp;
+      }
+
+      this.calibrationSamples.push({
+        cursor,
+        hesitation,
+        scroll
+      });
+
+      const elapsed = timestamp - this.calibrationStartedAt;
+      this.calibrationProgress = this.clamp((elapsed / this.calibrationDurationMs) * 100, 0, 100);
+
+      if (elapsed >= this.calibrationDurationMs || this.demoMode) {
+        this.completeCalibration();
+      }
+    }
+
+    completeCalibration() {
+      if (this.calibrationComplete) {
+        return;
+      }
+
+      this.isCalibrating = false;
+      this.calibrationComplete = true;
+      this.calibrationProgress = 100;
+      this.baselineCursor = this.average(this.calibrationSamples.map((sample) => sample.cursor));
+      this.baselineHesitation = this.average(this.calibrationSamples.map((sample) => sample.hesitation));
+      this.baselineScroll = this.average(this.calibrationSamples.map((sample) => sample.scroll));
+
+      const payload = {
+        baselines: {
+          cursor: Math.round(this.baselineCursor),
+          hesitation: Math.round(this.baselineHesitation),
+          scroll: Math.round(this.baselineScroll)
+        },
+        confidence: this.getConfidence()
+      };
+
+      for (const callback of this.calibrationCallbacks) {
+        if (typeof callback === "function") {
+          callback(payload);
+        }
+      }
+    }
+
+    updateSessionStats(timestamp) {
+      const state = this.getLoadStateFromScore(this.compositeScore);
+
+      if (this.lastStateTickAt === 0) {
+        this.lastStateTickAt = timestamp;
+      }
+
+      const delta = Math.max(0, timestamp - this.lastStateTickAt);
+
+      if (this.lastState === "low") {
+        this.timeInLow += delta;
+      } else if (this.lastState === "medium") {
+        this.timeInMedium += delta;
+      } else if (this.lastState === "high") {
+        this.timeInHigh += delta;
+      }
+
+      if (this.lastState && this.lastState !== state) {
+        this.modeSwitchCount += 1;
+      }
+
+      this.lastState = state;
+      this.lastStateTickAt = timestamp;
+      this.sessionMin = this.sessionMin === null ? this.compositeScore : Math.min(this.sessionMin, this.compositeScore);
+      this.sessionMax = this.sessionMax === null ? this.compositeScore : Math.max(this.sessionMax, this.compositeScore);
+
+      if (!this.sessionAvgInitialized) {
+        this.sessionAvg = this.compositeScore;
+        this.sessionAvgInitialized = true;
+      } else {
+        this.sessionAvg = this.sessionAvg * 0.92 + this.compositeScore * 0.08;
+      }
+
+      this.sessionScoreHistory.push(Math.round(this.compositeScore));
+
+      if (this.sessionScoreHistory.length > 500) {
+        this.sessionScoreHistory.shift();
+      }
     }
 
     pruneEventWindows(timestamp) {
@@ -278,7 +406,6 @@
         return 8;
       }
 
-      // Angular deviation between consecutive movement vectors is a simple proxy for cursor jitter.
       const vectors = [];
 
       for (let index = 1; index < this.cursorPositions.length; index += 1) {
@@ -306,7 +433,6 @@
       }
 
       let angleSum = 0;
-      let angleCount = 0;
       let speedSum = 0;
 
       for (let index = 1; index < vectors.length; index += 1) {
@@ -315,17 +441,14 @@
         const dotProduct = previous.x * current.x + previous.y * current.y;
         const magnitudeProduct = previous.magnitude * current.magnitude;
         const cosine = this.clamp(dotProduct / magnitudeProduct, -1, 1);
-        const angle = Math.acos(cosine);
-
-        angleSum += angle;
-        angleCount += 1;
+        angleSum += Math.acos(cosine);
       }
 
       for (const vector of vectors) {
         speedSum += vector.speed;
       }
 
-      const averageAngle = angleSum / Math.max(1, angleCount);
+      const averageAngle = angleSum / Math.max(1, vectors.length - 1);
       const averageSpeed = speedSum / vectors.length;
       const angleScore = (averageAngle / Math.PI) * 100;
       const speedFactor = this.clamp(this.mapRange(averageSpeed, 0.04, 0.85, 0.18, 1), 0.18, 1);
@@ -335,10 +458,8 @@
 
     computeHesitationIndex(timestamp) {
       const recentIntervals = this.interactionIntervals.slice(-9);
-      const currentPendingInterval =
-        this.lastInteractionAt === null ? timestamp - this.engineStartedAt : timestamp - this.lastInteractionAt;
-
-      recentIntervals.push(currentPendingInterval);
+      const pending = this.lastInteractionAt === null ? timestamp - this.engineStartedAt : timestamp - this.lastInteractionAt;
+      recentIntervals.push(pending);
 
       const averageInterval = this.average(recentIntervals);
       const intervalScore = this.clamp(this.mapRange(averageInterval, 800, 3000, 0, 100), 0, 100);
@@ -352,10 +473,7 @@
     }
 
     computeErrorRate() {
-      const deleteCount = this.deleteKeyEvents.length;
-      const correctionCount = this.correctionEvents.length;
-      const weightedErrors = deleteCount + correctionCount * 2;
-
+      const weightedErrors = this.deleteKeyEvents.length + this.correctionEvents.length * 2;
       return this.clamp((weightedErrors / 15) * 100, 0, 100);
     }
 
@@ -364,8 +482,7 @@
         return timestamp - this.engineStartedAt < 2000 ? 10 : 6;
       }
 
-      // Fast speed, bursty pace, and frequent reversals usually signal disorientation.
-      const speeds = this.scrollEvents.map((event) => event.speed);
+      const speeds = this.scrollEvents.map((entry) => entry.speed);
       const averageSpeed = this.average(speeds);
       const speedVariance = this.variance(speeds, averageSpeed);
 
@@ -379,11 +496,7 @@
           upwardMovements += 1;
         }
 
-        if (index === 0) {
-          continue;
-        }
-
-        if (current.direction !== this.scrollEvents[index - 1].direction) {
+        if (index > 0 && current.direction !== this.scrollEvents[index - 1].direction) {
           directionChanges += 1;
         }
       }
@@ -407,17 +520,19 @@
 
     getMentalLoadScore() {
       this.refreshMetrics();
-      return Math.round(this.compositeScore === null ? 0 : this.compositeScore);
+      return Math.round(this.compositeScore);
     }
 
     getLoadState() {
-      const composite = this.getMentalLoadScore();
+      return this.getLoadStateFromScore(this.getMentalLoadScore());
+    }
 
-      if (composite <= 33) {
+    getLoadStateFromScore(score) {
+      if (score <= 33) {
         return "low";
       }
 
-      if (composite <= 66) {
+      if (score <= 66) {
         return "medium";
       }
 
@@ -427,35 +542,125 @@
     getMetrics() {
       this.refreshMetrics();
 
+      if (this.isCalibrating && !this.calibrationComplete) {
+        return {
+          calibrating: true,
+          progress: Math.round(this.calibrationProgress)
+        };
+      }
+
       return {
         cursorEntropy: Math.round(this.cursorEntropy),
         hesitationIndex: Math.round(this.hesitationIndex),
         errorRate: Math.round(this.errorRate),
         scrollRhythm: Math.round(this.scrollRhythm),
-        composite: Math.round(this.compositeScore === null ? 0 : this.compositeScore),
-        state: this.getLoadState()
+        composite: Math.round(this.compositeScore),
+        state: this.getLoadStateFromScore(this.compositeScore),
+        confidence: this.getConfidence()
       };
     }
 
-    startPolling(callback, intervalMs) {
+    getConfidence() {
+      const weights = {
+        mouseMove: 0.35,
+        click: 0.15,
+        keystroke: 0.25,
+        scroll: 0.25
+      };
+
+      const normalized =
+        this.clamp((this.eventCounts.mouseMove / 80) * 100, 0, 100) * weights.mouseMove +
+        this.clamp((this.eventCounts.click / 20) * 100, 0, 100) * weights.click +
+        this.clamp((this.eventCounts.keystroke / 40) * 100, 0, 100) * weights.keystroke +
+        this.clamp((this.eventCounts.scroll / 30) * 100, 0, 100) * weights.scroll;
+
+      return Math.round(this.clamp(normalized, 0, 100));
+    }
+
+    getSignalQuality() {
+      return {
+        cursor: Math.round(this.clamp((this.eventCounts.mouseMove / 80) * 100, 0, 100)),
+        hesitation: Math.round(this.clamp(((this.eventCounts.click + this.eventCounts.keystroke) / 50) * 100, 0, 100)),
+        error: Math.round(this.clamp((this.eventCounts.keystroke / 40) * 100, 0, 100)),
+        scroll: Math.round(this.clamp((this.eventCounts.scroll / 30) * 100, 0, 100))
+      };
+    }
+
+    getSessionStats() {
+      const durationMs = this.sessionStartTime ? this.now() - this.sessionStartTime : 0;
+
+      return {
+        min: this.sessionMin === null ? 0 : Math.round(this.sessionMin),
+        max: this.sessionMax === null ? 0 : Math.round(this.sessionMax),
+        avg: this.sessionAvgInitialized ? Math.round(this.sessionAvg) : 0,
+        timeInLow: this.timeInLow,
+        timeInMedium: this.timeInMedium,
+        timeInHigh: this.timeInHigh,
+        modeSwitchCount: this.modeSwitchCount,
+        durationMs,
+        confidence: this.getConfidence()
+      };
+    }
+
+    getEventCounts() {
+      return Object.assign({}, this.eventCounts);
+    }
+
+    setNoiseLevel(level) {
+      this.noiseLevel = Math.max(0, Number(level) || 0);
+    }
+
+    setDemoMode(isDemo) {
+      this.demoMode = Boolean(isDemo);
+
+      if (this.demoMode) {
+        this.setNoiseLevel(0);
+
+        if (!this.calibrationComplete) {
+          this.isCalibrating = true;
+          this.completeCalibration();
+        }
+      } else {
+        this.setNoiseLevel(2);
+      }
+    }
+
+    onCalibrationComplete(callback) {
+      if (typeof callback === "function") {
+        this.calibrationCallbacks.push(callback);
+      }
+    }
+
+    startPolling(callback, intervalMs = 500) {
       if (typeof callback !== "function" || typeof window === "undefined") {
         return;
       }
 
       this.stopPolling();
+
+      if (this.sessionStartTime === null) {
+        this.sessionStartTime = this.now();
+        this.lastStateTickAt = this.sessionStartTime;
+      }
+
+      if (!this.calibrationComplete && !this.isCalibrating) {
+        this.isCalibrating = true;
+        this.calibrationStartedAt = this.now();
+        this.calibrationSamples = [];
+      }
+
       callback(this.getMetrics());
 
       this.pollingIntervalId = window.setInterval(() => {
         callback(this.getMetrics());
-      }, intervalMs || 500);
+      }, intervalMs);
     }
 
     stopPolling() {
-      if (this.pollingIntervalId === null || typeof window === "undefined") {
-        return;
+      if (this.pollingIntervalId !== null && typeof window !== "undefined") {
+        window.clearInterval(this.pollingIntervalId);
       }
 
-      window.clearInterval(this.pollingIntervalId);
       this.pollingIntervalId = null;
     }
 
@@ -494,15 +699,7 @@
 
       if (typeof HTMLInputElement !== "undefined" && target instanceof HTMLInputElement) {
         const type = (target.type || "text").toLowerCase();
-        return [
-          "text",
-          "search",
-          "email",
-          "url",
-          "tel",
-          "password",
-          "number"
-        ].includes(type);
+        return ["text", "search", "email", "url", "tel", "password", "number"].includes(type);
       }
 
       return target instanceof HTMLElement && target.isContentEditable;
@@ -513,16 +710,11 @@
         return null;
       }
 
-      if (
-        !target ||
-        target === document ||
-        target === document.body ||
-        target === document.documentElement
-      ) {
+      if (!target || target === document || target === document.body || target === document.documentElement) {
         return document.scrollingElement || document.documentElement;
       }
 
-      return target;
+      return target instanceof Element ? target : document.scrollingElement || document.documentElement;
     }
 
     getScrollPosition(target) {
@@ -530,21 +722,24 @@
         return 0;
       }
 
-      if (typeof window !== "undefined" && target === window) {
-        return window.scrollY || 0;
+      if ("scrollTop" in target) {
+        return Number(target.scrollTop) || 0;
       }
 
-      return typeof target.scrollTop === "number" ? target.scrollTop : 0;
-    }
-
-    smoothSensorValue(previousValue, nextValue, alpha) {
-      const safePrevious = Number.isFinite(previousValue) ? previousValue : 0;
-      const safeNext = Number.isFinite(nextValue) ? nextValue : 0;
-      return this.clamp(safePrevious * (1 - alpha) + safeNext * alpha, 0, 100);
+      return 0;
     }
 
     applyNoise(value) {
-      return this.clamp(value + (Math.random() * 4 - 2), 0, 100);
+      if (this.noiseLevel <= 0 || this.demoMode) {
+        return this.clamp(value, 0, 100);
+      }
+
+      const noise = (Math.random() * 2 - 1) * this.noiseLevel;
+      return this.clamp(value + noise, 0, 100);
+    }
+
+    smoothSensorValue(previous, next, alpha) {
+      return previous === 0 ? next : previous * (1 - alpha) + next * alpha;
     }
 
     average(values) {
@@ -552,13 +747,7 @@
         return 0;
       }
 
-      let total = 0;
-
-      for (const value of values) {
-        total += value;
-      }
-
-      return total / values.length;
+      return values.reduce((sum, value) => sum + value, 0) / values.length;
     }
 
     variance(values, mean) {
@@ -566,34 +755,26 @@
         return 0;
       }
 
-      let total = 0;
-
-      for (const value of values) {
-        total += (value - mean) * (value - mean);
-      }
-
-      return total / values.length;
+      return values.reduce((sum, value) => sum + Math.pow(value - mean, 2), 0) / values.length;
     }
 
-    mapRange(value, inputMin, inputMax, outputMin, outputMax) {
-      if (inputMax === inputMin) {
-        return outputMin;
+    mapRange(value, inMin, inMax, outMin, outMax) {
+      if (inMax === inMin) {
+        return outMin;
       }
 
-      const ratio = (value - inputMin) / (inputMax - inputMin);
-      return outputMin + ratio * (outputMax - outputMin);
+      const ratio = (value - inMin) / (inMax - inMin);
+      return outMin + ratio * (outMax - outMin);
     }
 
-    clamp(value, minimum, maximum) {
-      return Math.min(maximum, Math.max(minimum, value));
+    clamp(value, min, max) {
+      return Math.min(max, Math.max(min, value));
     }
 
     now() {
-      if (typeof performance !== "undefined" && typeof performance.now === "function") {
-        return performance.now();
-      }
-
-      return Date.now();
+      return typeof performance !== "undefined" && typeof performance.now === "function"
+        ? performance.now()
+        : Date.now();
     }
   }
 

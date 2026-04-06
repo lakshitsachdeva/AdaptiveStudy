@@ -5,7 +5,9 @@
     if (
       typeof window.CognitiveEngine !== "function" ||
       typeof window.UIAdapter !== "function" ||
-      !window.StudyContent
+      !window.StudyContent ||
+      !window.SessionAnalytics ||
+      !window.OnboardingTour
     ) {
       return;
     }
@@ -13,22 +15,20 @@
     const engine = new window.CognitiveEngine();
     const ui = new window.UIAdapter();
     const content = window.StudyContent;
+    const analytics = window.SessionAnalytics;
+    const tour = window.OnboardingTour;
     const scoreHistory = [];
 
     const body = document.body;
     const timerDisplay = document.getElementById("session-timer");
     const notesField = document.getElementById("study-notes");
-    const flipButton = document.getElementById("btn-flip");
-    const learnedButton = document.getElementById("btn-learned");
-    const reviewButton = document.getElementById("btn-review");
-    const skipButton = document.getElementById("btn-skip");
-    const sidebarToggleButton = document.getElementById("btn-toggle-sidebar");
-    const panelToggleButton = document.getElementById("btn-toggle-panel");
-    const mobileMenuButton = document.getElementById("btn-mobile-menu");
-    const mobilePanelButton = document.getElementById("btn-mobile-panel");
     const demoToggleButton = document.getElementById("btn-demo");
     const demoBadge = document.getElementById("demo-badge");
-    const topicButtons = Array.from(document.querySelectorAll(".topic-pill-button"));
+    const shortcutModal = document.getElementById("shortcut-modal");
+    const researchOverlay = document.getElementById("research-overlay");
+    const onboardingOverlay = document.getElementById("onboarding-overlay");
+    const quickSheet = document.getElementById("quick-actions-sheet");
+    const quickSheetFab = document.getElementById("fab-quick-actions");
 
     let sessionSeconds = 0;
     let breakSuggestionShown = false;
@@ -36,6 +36,7 @@
     let demoIntervalId = null;
     let demoModeActive = false;
     let demoStartedAt = 0;
+    let lastDemoPhase = null;
 
     content.renderCard();
     restoreNotes();
@@ -45,17 +46,64 @@
     wireTopicPills();
     wireNotes();
     wireKeyboardShortcuts();
+    wireCustomEvents();
+    updateTopicPillCounts();
     syncPanelButtonStates();
     startRealPolling();
+    analytics.logEvent("card_seen", { subject: content.getCurrentCard()?.subject || null });
 
-    window.addEventListener("resize", () => {
-      syncPanelButtonStates();
+    engine.onCalibrationComplete((data) => {
+      ui.showCalibrationState(100, true);
+      ui.showToast("Calibrated to your interaction style", "success");
+      analytics.calibrated = true;
+      analytics.logEvent("calibration_complete", data);
+    });
+
+    document.getElementById("btn-tour")?.addEventListener("click", () => {
+      tour.start();
+    });
+
+    if (tour.shouldShow()) {
+      window.setTimeout(() => tour.start(), 1800);
+    }
+
+    window.addEventListener("resize", syncPanelButtonStates);
+    window.addEventListener("scroll", () => {
+      document.getElementById("navbar")?.classList.toggle("scrolled", window.scrollY > 10);
+    }, { passive: true });
+
+    document.getElementById("btn-export-report")?.addEventListener("click", () => {
+      analytics.exportReport();
+    });
+
+    document.getElementById("btn-shortcuts")?.addEventListener("click", () => {
+      if (shortcutModal) {
+        shortcutModal.hidden = false;
+      }
+    });
+
+    document.getElementById("btn-close-shortcuts")?.addEventListener("click", () => {
+      if (shortcutModal) {
+        shortcutModal.hidden = true;
+      }
+    });
+
+    document.getElementById("btn-close-research")?.addEventListener("click", () => {
+      if (researchOverlay) {
+        researchOverlay.hidden = true;
+      }
+    });
+
+    document.getElementById("btn-print-research")?.addEventListener("click", () => {
+      window.print();
     });
 
     window.AdaptiveStudyDashboard = {
       engine,
       ui,
-      content
+      content,
+      analytics,
+      tour
     };
 
     function startSessionTimer() {
@@ -65,7 +113,9 @@
 
         if (!breakSuggestionShown && sessionSeconds >= 25 * 60) {
           breakSuggestionShown = true;
-          ui.showToast("🌿 Pomodoro break suggested");
+          timerDisplay?.classList.add("timer-warning");
+          ui.showToast("Pomodoro break suggested", "calm");
+          analytics.logEvent("pomodoro_alert");
         }
       }, 1000);
     }
@@ -77,12 +127,16 @@
 
       const minutes = Math.floor(sessionSeconds / 60);
       const seconds = sessionSeconds % 60;
-      timerDisplay.textContent =
-        String(minutes).padStart(2, "0") + ":" + String(seconds).padStart(2, "0");
+      timerDisplay.textContent = String(minutes).padStart(2, "0") + ":" + String(seconds).padStart(2, "0");
     }
 
     function startRealPolling() {
       engine.startPolling((metrics) => {
+        if (metrics.calibrating) {
+          ui.showCalibrationState(metrics.progress, false);
+          return;
+        }
+
         applyMetrics(metrics);
       }, 500);
     }
@@ -96,65 +150,51 @@
       content.adaptToLoad(metrics.state);
 
       scoreHistory.push(metrics.composite);
-
       if (scoreHistory.length > 30) {
         scoreHistory.shift();
       }
 
       ui.updateSparkline(scoreHistory);
+      analytics.logLoadSample(metrics.composite, metrics.state);
+      ui.updateSessionStats(analytics.getStats());
+      ui.updateResearchOverlay(Object.assign({}, analytics.getStats(), content.getSessionSummary()));
+      ui.updateMasteryBars(content.getSubjectMastery());
+      ui.updateConfidence(engine.getConfidence());
     }
 
     function wireButtons() {
-      if (flipButton) {
-        flipButton.addEventListener("click", () => content.flipCard());
-      }
+      document.getElementById("btn-flip")?.addEventListener("click", () => content.flipCard());
+      document.getElementById("btn-learned")?.addEventListener("click", () => content.markLearned());
+      document.getElementById("btn-review")?.addEventListener("click", () => content.markReview());
+      document.getElementById("btn-skip")?.addEventListener("click", () => content.nextCard());
+      document.getElementById("btn-toggle-sidebar")?.addEventListener("click", toggleSidebar);
+      document.getElementById("btn-toggle-panel")?.addEventListener("click", togglePanel);
+      document.getElementById("btn-mobile-menu")?.addEventListener("click", toggleSidebar);
+      document.getElementById("btn-mobile-panel")?.addEventListener("click", togglePanel);
+      document.getElementById("btn-sheet-flip")?.addEventListener("click", () => content.flipCard());
+      document.getElementById("btn-sheet-skip")?.addEventListener("click", () => content.nextCard());
+      document.getElementById("btn-sheet-demo")?.addEventListener("click", toggleDemoMode);
 
-      if (learnedButton) {
-        learnedButton.addEventListener("click", () => content.markLearned());
-      }
+      demoToggleButton?.addEventListener("click", toggleDemoMode);
 
-      if (reviewButton) {
-        reviewButton.addEventListener("click", () => content.markReview());
-      }
+      quickSheetFab?.addEventListener("click", () => {
+        if (!quickSheet) {
+          return;
+        }
 
-      if (skipButton) {
-        skipButton.addEventListener("click", () => content.nextCard());
-      }
-
-      if (sidebarToggleButton) {
-        sidebarToggleButton.addEventListener("click", () => toggleSidebar());
-      }
-
-      if (panelToggleButton) {
-        panelToggleButton.addEventListener("click", () => togglePanel());
-      }
-
-      if (mobileMenuButton) {
-        mobileMenuButton.addEventListener("click", () => toggleSidebar());
-      }
-
-      if (mobilePanelButton) {
-        mobilePanelButton.addEventListener("click", () => togglePanel());
-      }
-
-      if (demoToggleButton) {
-        demoToggleButton.addEventListener("click", () => {
-          if (demoModeActive) {
-            stopDemoMode();
-          } else {
-            startDemoMode();
-          }
-        });
-      }
+        const open = quickSheet.hidden;
+        quickSheet.hidden = !open;
+        quickSheetFab.setAttribute("aria-expanded", String(open));
+        quickSheetFab.textContent = open ? "✕" : "☰";
+      });
     }
 
     function wireTopicPills() {
-      for (const button of topicButtons) {
+      document.querySelectorAll(".topic-pill-button").forEach((button) => {
         button.addEventListener("click", () => {
-          const subject = button.dataset.topic || button.textContent.trim();
-          content.filterBySubject(subject);
+          content.filterBySubject(button.dataset.topic || "");
         });
-      }
+      });
     }
 
     function wireNotes() {
@@ -178,7 +218,6 @@
 
       try {
         const savedNotes = window.localStorage.getItem("adaptivestudy-notes");
-
         if (savedNotes) {
           notesField.value = savedNotes;
         }
@@ -189,7 +228,28 @@
 
     function wireKeyboardShortcuts() {
       document.addEventListener("keydown", (event) => {
-        if (event.defaultPrevented || event.repeat || shouldIgnoreShortcut(event)) {
+        if (event.ctrlKey && event.key.toLowerCase() === "r") {
+          event.preventDefault();
+          if (researchOverlay) {
+            researchOverlay.hidden = !researchOverlay.hidden;
+          }
+          return;
+        }
+
+        if (event.key === "?") {
+          event.preventDefault();
+          if (shortcutModal) {
+            shortcutModal.hidden = false;
+          }
+          return;
+        }
+
+        if (event.key === "Escape") {
+          closeOverlays();
+          return;
+        }
+
+        if (shouldIgnoreShortcut(event)) {
           return;
         }
 
@@ -214,18 +274,70 @@
         if (event.key === "r" || event.key === "R") {
           event.preventDefault();
           content.markReview();
+          return;
+        }
+
+        if (event.key === "d" || event.key === "D") {
+          event.preventDefault();
+          toggleDemoMode();
+        }
+      });
+
+      document.querySelectorAll(".conf-btn").forEach((button) => {
+        button.addEventListener("click", () => {
+          const card = content.getCurrentCard();
+          const rating = parseInt(button.dataset.confidence || "0", 10);
+
+          if (!card || !rating) {
+            return;
+          }
+
+          content.recordConfidence(card.id, rating);
+          analytics.logEvent("confidence_rated", { cardId: card.id, rating });
+          content.nextCard();
+        });
+      });
+    }
+
+    function wireCustomEvents() {
+      window.addEventListener("adaptivestudy:card-rendered", (event) => {
+        const card = event.detail?.card;
+
+        if (!card) {
+          return;
+        }
+
+        analytics.logEvent("card_seen", {
+          cardId: card.id,
+          subject: card.subject,
+          difficulty: card.difficulty
+        });
+        ui.updateMasteryBars(content.getSubjectMastery());
+      });
+
+      window.addEventListener("adaptivestudy:card-learned", (event) => {
+        const card = event.detail?.card;
+        if (card) {
+          analytics.logEvent("card_learned", { cardId: card.id });
+        }
+      });
+
+      window.addEventListener("adaptivestudy:card-review", (event) => {
+        const card = event.detail?.card;
+        if (card) {
+          analytics.logEvent("card_review", { cardId: card.id });
         }
       });
     }
 
     function shouldIgnoreShortcut(event) {
       if (event.metaKey || event.ctrlKey || event.altKey) {
-        return true;
+        return false;
       }
 
       const target = event.target;
 
-      if (!target || !(target instanceof HTMLElement)) {
+      if (!(target instanceof HTMLElement)) {
         return false;
       }
 
@@ -233,24 +345,60 @@
         target instanceof HTMLInputElement ||
         target instanceof HTMLTextAreaElement ||
         target instanceof HTMLSelectElement ||
-        target instanceof HTMLButtonElement ||
         target.isContentEditable
       );
+    }
+
+    function updateTopicPillCounts() {
+      const counts = {};
+
+      (window.FLASHCARD_DECK || []).forEach((card) => {
+        counts[card.subject] = (counts[card.subject] || 0) + 1;
+      });
+
+      document.querySelectorAll(".topic-pill-button").forEach((button) => {
+        const subject = button.dataset.topic || "";
+        const count = counts[subject] || 0;
+        const countBadge = button.querySelector(".pill-count");
+
+        if (countBadge) {
+          countBadge.textContent = String(count);
+        }
+      });
+    }
+
+    function toggleDemoMode() {
+      if (demoModeActive) {
+        stopDemoMode();
+      } else {
+        startDemoMode();
+      }
     }
 
     function startDemoMode() {
       demoModeActive = true;
       demoStartedAt = Date.now();
-
+      lastDemoPhase = null;
       engine.stopPolling();
+      engine.setDemoMode(true);
       clearDemoTimer();
       setDemoUiState(true);
+      analytics.logEvent("demo_mode_start");
 
+      applyDemoPhaseEffects(0);
       applyMetrics(buildDemoMetrics(0));
 
       demoIntervalId = window.setInterval(() => {
-        const elapsedSeconds = (Date.now() - demoStartedAt) / 1000;
+        const elapsed = Date.now() - demoStartedAt;
+        const elapsedSeconds = elapsed / 1000;
+        applyDemoPhaseEffects(elapsedSeconds);
         applyMetrics(buildDemoMetrics(elapsedSeconds));
+
+        if (elapsed >= 20000) {
+          stopDemoMode();
+          ui.showToast("Demo complete — try interacting normally now!", "success");
+          analytics.logEvent("demo_mode_end", { duration: 20000 });
+        }
       }, 500);
     }
 
@@ -258,6 +406,7 @@
       demoModeActive = false;
       clearDemoTimer();
       setDemoUiState(false);
+      engine.setDemoMode(false);
       startRealPolling();
     }
 
@@ -268,66 +417,99 @@
       }
     }
 
-    function setDemoUiState(isActive) {
+    function setDemoUiState(active) {
+      demoToggleButton?.setAttribute("aria-pressed", String(active));
       if (demoToggleButton) {
-        demoToggleButton.setAttribute("aria-pressed", String(isActive));
-        demoToggleButton.textContent = isActive ? "Stop Demo" : "Demo Mode";
+        demoToggleButton.textContent = active ? "Stop Demo" : "Demo Mode";
       }
 
       if (demoBadge) {
-        demoBadge.hidden = !isActive;
+        demoBadge.hidden = !active;
+        demoBadge.classList.toggle("is-blinking", active);
       }
     }
 
     function buildDemoMetrics(elapsedSeconds) {
-      const compositeScore = getDemoComposite(elapsedSeconds);
-      const safeComposite = clamp(compositeScore, 0, 100);
-      const state = getStateFromScore(safeComposite);
+      const composite = clamp(getDemoComposite(elapsedSeconds), 0, 100);
+      const state = getStateFromScore(composite);
 
       return {
-        cursorEntropy: clamp(safeComposite * 0.84 + Math.sin(elapsedSeconds * 1.4) * 8, 0, 100),
-        hesitationIndex: clamp(safeComposite * 1.02 + Math.cos(elapsedSeconds * 1.1 + 0.5) * 7, 0, 100),
-        errorRate: clamp(safeComposite * 0.63 + Math.sin(elapsedSeconds * 1.7 + 1.2) * 5, 0, 100),
-        scrollRhythm: clamp(safeComposite * 0.78 + Math.cos(elapsedSeconds * 1.3 + 2.4) * 6, 0, 100),
-        composite: Math.round(safeComposite),
+        cursorEntropy: clamp(composite * 0.82 + Math.sin(elapsedSeconds * 0.9) * 4, 0, 100),
+        hesitationIndex: clamp(composite * 1.02 + Math.cos(elapsedSeconds * 0.8 + 0.4) * 3, 0, 100),
+        errorRate: clamp(composite * 0.64 + Math.sin(elapsedSeconds * 0.7 + 1.2) * 2, 0, 100),
+        scrollRhythm: clamp(composite * 0.76 + Math.cos(elapsedSeconds * 0.6 + 2.2) * 3, 0, 100),
+        composite: Math.round(composite),
         state
       };
     }
 
+    function applyDemoPhaseEffects(elapsedSeconds) {
+      const phase = getDemoPhase(elapsedSeconds);
+
+      if (phase === lastDemoPhase) {
+        return;
+      }
+
+      lastDemoPhase = phase;
+
+      if (phase === 1) {
+        console.log("[Demo] Phase 1: Baseline — normal interaction");
+      } else if (phase === 2) {
+        console.log("[Demo] Phase 2: Load rising — sensors detecting stress signals");
+        ui.showToast("Load rising — try typing or moving quickly", "info");
+      } else if (phase === 3) {
+        console.log("[Demo] Phase 3: Overload — Calm Mode activating...");
+        ui.showToast("Overload detected — entering Calm Mode", "calm");
+      } else if (phase === 4) {
+        console.log("[Demo] Phase 4: Sustained overload — interface fully simplified");
+      } else if (phase === 5) {
+        console.log("[Demo] Phase 5: Recovery — restoring full interface");
+        ui.showToast("Recovering — restoring Focus Mode", "success");
+      }
+    }
+
+    function getDemoPhase(elapsedSeconds) {
+      if (elapsedSeconds < 3) return 1;
+      if (elapsedSeconds < 8) return 2;
+      if (elapsedSeconds < 13) return 3;
+      if (elapsedSeconds < 17) return 4;
+      return 5;
+    }
+
     function getDemoComposite(elapsedSeconds) {
-      if (elapsedSeconds <= 5) {
-        return lerp(20, 45, elapsedSeconds / 5);
+      if (elapsedSeconds <= 3) {
+        return 20;
       }
 
-      if (elapsedSeconds <= 10) {
-        return lerp(45, 78, (elapsedSeconds - 5) / 5);
+      if (elapsedSeconds <= 8) {
+        return easeInOut(20, 48, (elapsedSeconds - 3) / 5);
       }
 
-      if (elapsedSeconds <= 15) {
-        return lerp(78, 30, (elapsedSeconds - 10) / 5);
+      if (elapsedSeconds <= 13) {
+        return easeInOut(48, 82, (elapsedSeconds - 8) / 5);
       }
 
-      return 30;
+      if (elapsedSeconds <= 17) {
+        return 82;
+      }
+
+      if (elapsedSeconds <= 20) {
+        return easeInOut(82, 25, (elapsedSeconds - 17) / 3);
+      }
+
+      return 25;
+    }
+
+    function easeInOut(start, end, t) {
+      const safeT = clamp(t, 0, 1);
+      const eased = safeT < 0.5 ? 2 * safeT * safeT : -1 + (4 - 2 * safeT) * safeT;
+      return start + (end - start) * eased;
     }
 
     function getStateFromScore(score) {
-      if (score <= 33) {
-        return "low";
-      }
-
-      if (score <= 66) {
-        return "medium";
-      }
-
+      if (score <= 33) return "low";
+      if (score <= 66) return "medium";
       return "high";
-    }
-
-    function lerp(start, end, ratio) {
-      return start + (end - start) * clamp(ratio, 0, 1);
-    }
-
-    function clamp(value, min, max) {
-      return Math.min(max, Math.max(min, value));
     }
 
     function toggleSidebar() {
@@ -335,13 +517,9 @@
         const isOpen = !body.classList.contains("sidebar-open");
         body.classList.toggle("sidebar-open", isOpen);
         body.classList.toggle("sidebar-hidden", !isOpen);
-        body.classList.toggle("sidebar-collapsed", !isOpen);
       } else {
-        const isHidden = !body.classList.contains("sidebar-hidden");
-        body.classList.toggle("sidebar-hidden", isHidden);
-        body.classList.toggle("sidebar-collapsed", isHidden);
+        body.classList.toggle("sidebar-hidden");
       }
-
       syncPanelButtonStates();
     }
 
@@ -350,13 +528,9 @@
         const isOpen = !body.classList.contains("right-panel-open");
         body.classList.toggle("right-panel-open", isOpen);
         body.classList.toggle("panel-hidden", !isOpen);
-        body.classList.toggle("right-panel-collapsed", !isOpen);
       } else {
-        const isHidden = !body.classList.contains("panel-hidden");
-        body.classList.toggle("panel-hidden", isHidden);
-        body.classList.toggle("right-panel-collapsed", isHidden);
+        body.classList.toggle("panel-hidden");
       }
-
       syncPanelButtonStates();
     }
 
@@ -365,67 +539,43 @@
     }
 
     function syncPanelButtonStates() {
-      if (isCompactViewport()) {
-        if (sidebarToggleButton) {
-          sidebarToggleButton.setAttribute(
-            "aria-expanded",
-            String(body.classList.contains("sidebar-open"))
-          );
+      const sidebarExpanded = isCompactViewport()
+        ? body.classList.contains("sidebar-open")
+        : !body.classList.contains("sidebar-hidden");
+      const panelExpanded = isCompactViewport()
+        ? body.classList.contains("right-panel-open")
+        : !body.classList.contains("panel-hidden");
+
+      document.getElementById("btn-toggle-sidebar")?.setAttribute("aria-expanded", String(sidebarExpanded));
+      document.getElementById("btn-mobile-menu")?.setAttribute("aria-expanded", String(sidebarExpanded));
+      document.getElementById("btn-toggle-panel")?.setAttribute("aria-expanded", String(panelExpanded));
+      document.getElementById("btn-mobile-panel")?.setAttribute("aria-expanded", String(panelExpanded));
+
+      if (!isCompactViewport()) {
+        body.classList.remove("sidebar-open", "right-panel-open");
+        quickSheet && (quickSheet.hidden = true);
+        if (quickSheetFab) {
+          quickSheetFab.setAttribute("aria-expanded", "false");
+          quickSheetFab.textContent = "☰";
         }
-
-        if (mobileMenuButton) {
-          mobileMenuButton.setAttribute(
-            "aria-expanded",
-            String(body.classList.contains("sidebar-open"))
-          );
-        }
-
-        if (panelToggleButton) {
-          panelToggleButton.setAttribute(
-            "aria-expanded",
-            String(body.classList.contains("right-panel-open"))
-          );
-        }
-
-        if (mobilePanelButton) {
-          mobilePanelButton.setAttribute(
-            "aria-expanded",
-            String(body.classList.contains("right-panel-open"))
-          );
-        }
-
-        return;
       }
+    }
 
-      body.classList.remove("sidebar-open", "right-panel-open");
-
-      if (sidebarToggleButton) {
-        sidebarToggleButton.setAttribute(
-          "aria-expanded",
-          String(!body.classList.contains("sidebar-hidden"))
-        );
+    function closeOverlays() {
+      document.querySelectorAll(".modal-overlay, .research-overlay, .onboarding-overlay").forEach((element) => {
+        element.hidden = true;
+      });
+      if (quickSheet) {
+        quickSheet.hidden = true;
       }
-
-      if (mobileMenuButton) {
-        mobileMenuButton.setAttribute(
-          "aria-expanded",
-          String(!body.classList.contains("sidebar-hidden"))
-        );
+      if (quickSheetFab) {
+        quickSheetFab.setAttribute("aria-expanded", "false");
+        quickSheetFab.textContent = "☰";
       }
+    }
 
-      if (panelToggleButton) {
-        panelToggleButton.setAttribute(
-          "aria-expanded",
-          String(!body.classList.contains("panel-hidden"))
-        );
-      }
-
-      if (mobilePanelButton) {
-        mobilePanelButton.setAttribute(
-          "aria-expanded",
-          String(!body.classList.contains("panel-hidden"))
-        );
-      }
+    function clamp(value, min = 0, max = 100) {
+      return Math.min(max, Math.max(min, value));
     }
   });
 })();

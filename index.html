@@ -4,13 +4,16 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AdaptiveStudy</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="style.css" />
-    <script src="js/study-content.js" defer></script>
-    <script src="js/cognitive-engine.js" defer></script>
-    <script src="js/ui-adapter.js" defer></script>
-    <script src="js/dashboard.js" defer></script>
   </head>
   <body id="adaptive-study-app" class="adaptive-study-shell app-shell load-medium">
+    <div id="cursor-dot" aria-hidden="true"></div>
+    <div id="cursor-ring" aria-hidden="true"></div>
+    <div class="bg-mesh" aria-hidden="true"></div>
+    <div id="state-wash" aria-hidden="true"></div>
+
     <svg
       id="adaptive-study-filters"
       class="app-shell-filter-defs"
@@ -25,16 +28,17 @@
         </filter>
       </defs>
     </svg>
-    <header id="top-navbar" class="top-navbar">
+
+    <header id="navbar" class="top-navbar navbar" role="banner">
       <div id="navbar-mobile-controls" class="navbar-mobile-controls">
         <button
           id="btn-mobile-menu"
           class="mobile-nav-button hamburger-button"
           type="button"
-          aria-controls="left-sidebar-content"
+          aria-controls="sidebar"
           aria-expanded="false"
+          aria-label="Toggle sidebar"
         >
-          <span class="sr-only">Toggle sidebar</span>
           <span class="hamburger-line"></span>
           <span class="hamburger-line"></span>
           <span class="hamburger-line"></span>
@@ -43,8 +47,9 @@
           id="btn-mobile-panel"
           class="mobile-nav-button mobile-panel-button"
           type="button"
-          aria-controls="right-panel-content"
+          aria-controls="right-panel"
           aria-expanded="false"
+          aria-label="Toggle insights panel"
         >
           Insights
         </button>
@@ -61,43 +66,22 @@
           id="mental-load-widget"
           class="mental-load-widget load-medium"
           aria-labelledby="mental-load-heading"
-          style="--load-pct: 62; --load-color: var(--accent-amber);"
+          style="--load-pct: 48;"
         >
-          <h2 id="mental-load-heading" class="sr-only">Mental Load</h2>
+          <h1 id="mental-load-heading" class="sr-only">Mental Load</h1>
           <div id="mental-load-gauge-wrapper" class="mental-load-gauge-wrapper">
             <svg
               id="mental-load-gauge"
               class="mental-load-gauge"
               viewBox="0 0 60 60"
               role="img"
-              aria-labelledby="mental-load-gauge-label mental-load-gauge-value"
+              aria-label="Mental load score"
+              aria-live="polite"
+              aria-atomic="true"
             >
-              <title id="mental-load-gauge-label">Mental Load</title>
-              <desc id="mental-load-gauge-value">Current mental load score is 62 out of 100.</desc>
-              <circle
-                id="mental-load-gauge-track"
-                class="mental-load-gauge-track"
-                cx="30"
-                cy="30"
-                r="26"
-              ></circle>
-              <circle
-                id="mental-load-gauge-fill"
-                class="mental-load-gauge-fill"
-                cx="30"
-                cy="30"
-                r="26"
-              ></circle>
-              <text
-                id="mental-load-score"
-                class="mental-load-score"
-                x="30"
-                y="32"
-                text-anchor="middle"
-                dominant-baseline="middle"
-              >
-                62
-              </text>
+              <circle id="mental-load-gauge-track" class="mental-load-gauge-track" cx="30" cy="30" r="26"></circle>
+              <circle id="mental-load-gauge-fill" class="mental-load-gauge-fill" cx="30" cy="30" r="26"></circle>
+              <text id="mental-load-score" class="mental-load-score" x="30" y="32" text-anchor="middle">48</text>
             </svg>
             <div id="mental-load-text-block" class="mental-load-text-block">
               <span id="mental-load-label" class="mental-load-label">Mental Load</span>
@@ -106,26 +90,39 @@
           </div>
         </section>
 
-        <span id="study-mode-badge" class="study-mode-badge mode-focus" aria-live="polite">
-          Focus Mode
-        </span>
-        <button id="btn-demo" class="navbar-demo-button" type="button" aria-pressed="false">
+        <span id="study-mode-badge" class="study-mode-badge mode-focus" aria-live="polite">⚡ Focus Mode</span>
+        <button id="btn-demo" class="navbar-demo-button" type="button" aria-pressed="false" aria-label="Toggle demo mode">
           Demo Mode
         </button>
+        <button class="nav-btn" id="btn-shortcuts" type="button" aria-label="Keyboard shortcuts (press question mark)">
+          ⌨ Shortcuts
+        </button>
+        <button class="nav-btn" id="btn-tour" type="button" aria-label="Start guided tour">◎ Tour</button>
         <span id="demo-badge" class="demo-mode-badge" hidden>DEMO</span>
       </div>
     </header>
 
+    <div id="calibration-bar" class="calibration-bar" hidden aria-hidden="true">
+      <div class="calibration-fill" id="calibration-fill" style="width: 0%;"></div>
+      <div class="calibration-label" id="calibration-label">Calibrating to your baseline... 0%</div>
+    </div>
+
     <div id="dashboard-layout" class="dashboard-layout">
-      <aside id="left-sidebar" class="left-sidebar" aria-labelledby="left-sidebar-title">
+      <aside
+        id="sidebar"
+        class="left-sidebar"
+        role="navigation"
+        aria-label="Study topics and progress"
+      >
         <div id="left-sidebar-header" class="left-sidebar-header">
-          <h1 id="left-sidebar-title" class="left-sidebar-title">Study Controls</h1>
+          <h2 id="left-sidebar-title" class="left-sidebar-title">Study Controls</h2>
           <button
             id="btn-toggle-sidebar"
             class="panel-toggle-button"
             type="button"
-            aria-controls="left-sidebar-content"
+            aria-controls="sidebar"
             aria-expanded="true"
+            aria-label="Collapse sidebar"
           >
             Toggle Sidebar
           </button>
@@ -133,242 +130,155 @@
 
         <div id="left-sidebar-content" class="left-sidebar-content">
           <section id="todays-topics-section" class="sidebar-section todays-topics-section">
-            <h2 id="todays-topics-heading" class="sidebar-section-heading">Today's Topics</h2>
-            <nav id="topics-navigation" class="topics-navigation" aria-labelledby="todays-topics-heading">
-              <ul id="topics-list" class="topics-list">
-                <li class="topics-list-item">
-                  <button
-                    id="topic-pill-biology"
-                    class="topic-pill-button"
-                    type="button"
-                    data-topic="Biology"
-                  >
-                    Biology
-                  </button>
-                </li>
-                <li class="topics-list-item">
-                  <button
-                    id="topic-pill-physics"
-                    class="topic-pill-button"
-                    type="button"
-                    data-topic="Physics"
-                  >
-                    Physics
-                  </button>
-                </li>
-                <li class="topics-list-item">
-                  <button
-                    id="topic-pill-history"
-                    class="topic-pill-button"
-                    type="button"
-                    data-topic="History"
-                  >
-                    History
-                  </button>
-                </li>
-                <li class="topics-list-item">
-                  <button
-                    id="topic-pill-math"
-                    class="topic-pill-button"
-                    type="button"
-                    data-topic="Math"
-                  >
-                    Math
-                  </button>
-                </li>
-                <li class="topics-list-item">
-                  <button
-                    id="topic-pill-literature"
-                    class="topic-pill-button"
-                    type="button"
-                    data-topic="Literature"
-                  >
-                    Literature
-                  </button>
-                </li>
-              </ul>
-            </nav>
+            <h3 id="todays-topics-heading" class="sidebar-section-heading">Today's Topics</h3>
+            <ul id="topics-list" class="topics-list">
+              <li class="topics-list-item">
+                <button id="topic-pill-biology" class="topic-pill-button topic-pill" type="button" data-topic="Biology" aria-label="Show Biology cards">
+                  <span class="pill-label">Biology</span>
+                  <span class="pill-count" aria-hidden="true">4</span>
+                </button>
+              </li>
+              <li class="topics-list-item">
+                <button id="topic-pill-physics" class="topic-pill-button topic-pill" type="button" data-topic="Physics" aria-label="Show Physics cards">
+                  <span class="pill-label">Physics</span>
+                  <span class="pill-count" aria-hidden="true">4</span>
+                </button>
+              </li>
+              <li class="topics-list-item">
+                <button id="topic-pill-history" class="topic-pill-button topic-pill" type="button" data-topic="History" aria-label="Show History cards">
+                  <span class="pill-label">History</span>
+                  <span class="pill-count" aria-hidden="true">4</span>
+                </button>
+              </li>
+              <li class="topics-list-item">
+                <button id="topic-pill-math" class="topic-pill-button topic-pill" type="button" data-topic="Math" aria-label="Show Math cards">
+                  <span class="pill-label">Math</span>
+                  <span class="pill-count" aria-hidden="true">4</span>
+                </button>
+              </li>
+              <li class="topics-list-item">
+                <button id="topic-pill-literature" class="topic-pill-button topic-pill" type="button" data-topic="Literature" aria-label="Show Literature cards">
+                  <span class="pill-label">Literature</span>
+                  <span class="pill-count" aria-hidden="true">4</span>
+                </button>
+              </li>
+            </ul>
           </section>
 
           <section id="progress-section" class="sidebar-section progress-section">
-            <h2 id="progress-heading" class="sidebar-section-heading">Progress</h2>
+            <h3 id="progress-heading" class="sidebar-section-heading">Progress</h3>
             <ul id="progress-ring-list" class="progress-ring-list">
               <li id="progress-item-biology" class="progress-ring-item">
                 <button
                   id="progress-ring-button-biology"
                   class="progress-ring-button"
                   type="button"
-                  aria-label="Biology progress 78 percent"
+                  aria-label="Biology progress 0 percent"
                 >
-                  <svg
-                    id="progress-ring-biology"
-                    class="mini-progress-ring"
-                    viewBox="0 0 48 48"
-                    role="img"
-                    aria-hidden="true"
-                  >
+                  <span class="progress-ring-pulse"></span>
+                  <svg id="progress-ring-biology" class="mini-progress-ring" viewBox="0 0 48 48" role="img" aria-hidden="true">
                     <circle class="mini-progress-ring-track" cx="24" cy="24" r="18"></circle>
-                    <circle
-                      class="mini-progress-ring-fill"
-                      cx="24"
-                      cy="24"
-                      r="18"
-                      data-progress-value="78"
-                    ></circle>
+                    <circle class="mini-progress-ring-fill" cx="24" cy="24" r="18"></circle>
                   </svg>
-                  <span id="progress-label-biology" class="progress-ring-label">Biology 78%</span>
+                  <span id="progress-label-biology" class="progress-ring-label">Biology 0%</span>
                 </button>
               </li>
               <li id="progress-item-physics" class="progress-ring-item">
-                <button
-                  id="progress-ring-button-physics"
-                  class="progress-ring-button"
-                  type="button"
-                  aria-label="Physics progress 64 percent"
-                >
-                  <svg
-                    id="progress-ring-physics"
-                    class="mini-progress-ring"
-                    viewBox="0 0 48 48"
-                    role="img"
-                    aria-hidden="true"
-                  >
+                <button id="progress-ring-button-physics" class="progress-ring-button" type="button" aria-label="Physics progress 0 percent">
+                  <span class="progress-ring-pulse"></span>
+                  <svg id="progress-ring-physics" class="mini-progress-ring" viewBox="0 0 48 48" role="img" aria-hidden="true">
                     <circle class="mini-progress-ring-track" cx="24" cy="24" r="18"></circle>
-                    <circle
-                      class="mini-progress-ring-fill"
-                      cx="24"
-                      cy="24"
-                      r="18"
-                      data-progress-value="64"
-                    ></circle>
+                    <circle class="mini-progress-ring-fill" cx="24" cy="24" r="18"></circle>
                   </svg>
-                  <span id="progress-label-physics" class="progress-ring-label">Physics 64%</span>
+                  <span id="progress-label-physics" class="progress-ring-label">Physics 0%</span>
                 </button>
               </li>
               <li id="progress-item-history" class="progress-ring-item">
-                <button
-                  id="progress-ring-button-history"
-                  class="progress-ring-button"
-                  type="button"
-                  aria-label="History progress 51 percent"
-                >
-                  <svg
-                    id="progress-ring-history"
-                    class="mini-progress-ring"
-                    viewBox="0 0 48 48"
-                    role="img"
-                    aria-hidden="true"
-                  >
+                <button id="progress-ring-button-history" class="progress-ring-button" type="button" aria-label="History progress 0 percent">
+                  <span class="progress-ring-pulse"></span>
+                  <svg id="progress-ring-history" class="mini-progress-ring" viewBox="0 0 48 48" role="img" aria-hidden="true">
                     <circle class="mini-progress-ring-track" cx="24" cy="24" r="18"></circle>
-                    <circle
-                      class="mini-progress-ring-fill"
-                      cx="24"
-                      cy="24"
-                      r="18"
-                      data-progress-value="51"
-                    ></circle>
+                    <circle class="mini-progress-ring-fill" cx="24" cy="24" r="18"></circle>
                   </svg>
-                  <span id="progress-label-history" class="progress-ring-label">History 51%</span>
+                  <span id="progress-label-history" class="progress-ring-label">History 0%</span>
                 </button>
               </li>
               <li id="progress-item-math" class="progress-ring-item">
-                <button
-                  id="progress-ring-button-math"
-                  class="progress-ring-button"
-                  type="button"
-                  aria-label="Math progress 83 percent"
-                >
-                  <svg
-                    id="progress-ring-math"
-                    class="mini-progress-ring"
-                    viewBox="0 0 48 48"
-                    role="img"
-                    aria-hidden="true"
-                  >
+                <button id="progress-ring-button-math" class="progress-ring-button" type="button" aria-label="Math progress 0 percent">
+                  <span class="progress-ring-pulse"></span>
+                  <svg id="progress-ring-math" class="mini-progress-ring" viewBox="0 0 48 48" role="img" aria-hidden="true">
                     <circle class="mini-progress-ring-track" cx="24" cy="24" r="18"></circle>
-                    <circle
-                      class="mini-progress-ring-fill"
-                      cx="24"
-                      cy="24"
-                      r="18"
-                      data-progress-value="83"
-                    ></circle>
+                    <circle class="mini-progress-ring-fill" cx="24" cy="24" r="18"></circle>
                   </svg>
-                  <span id="progress-label-math" class="progress-ring-label">Math 83%</span>
+                  <span id="progress-label-math" class="progress-ring-label">Math 0%</span>
                 </button>
               </li>
               <li id="progress-item-literature" class="progress-ring-item">
-                <button
-                  id="progress-ring-button-literature"
-                  class="progress-ring-button"
-                  type="button"
-                  aria-label="Literature progress 69 percent"
-                >
-                  <svg
-                    id="progress-ring-literature"
-                    class="mini-progress-ring"
-                    viewBox="0 0 48 48"
-                    role="img"
-                    aria-hidden="true"
-                  >
+                <button id="progress-ring-button-literature" class="progress-ring-button" type="button" aria-label="Literature progress 0 percent">
+                  <span class="progress-ring-pulse"></span>
+                  <svg id="progress-ring-literature" class="mini-progress-ring" viewBox="0 0 48 48" role="img" aria-hidden="true">
                     <circle class="mini-progress-ring-track" cx="24" cy="24" r="18"></circle>
-                    <circle
-                      class="mini-progress-ring-fill"
-                      cx="24"
-                      cy="24"
-                      r="18"
-                      data-progress-value="69"
-                    ></circle>
+                    <circle class="mini-progress-ring-fill" cx="24" cy="24" r="18"></circle>
                   </svg>
-                  <span id="progress-label-literature" class="progress-ring-label">Literature 69%</span>
+                  <span id="progress-label-literature" class="progress-ring-label">Literature 0%</span>
                 </button>
               </li>
             </ul>
           </section>
 
+          <section class="sidebar-section" id="mastery-section">
+            <h3 class="sidebar-section-heading">Mastery Overview</h3>
+            <div class="mastery-bar-list" id="mastery-bar-list"></div>
+          </section>
+
           <section id="session-timer-section" class="sidebar-section session-timer-section">
-            <h2 id="session-timer-heading" class="sidebar-section-heading">Session Timer</h2>
-            <div
-              id="session-timer"
-              class="session-timer-display"
-              role="timer"
-              aria-live="polite"
-            >
-              00:42:18
-            </div>
+            <h3 id="session-timer-heading" class="sidebar-section-heading">Session Timer</h3>
+            <div id="session-timer" class="session-timer-display" role="timer" aria-live="polite">00:00</div>
           </section>
         </div>
       </aside>
 
-      <main id="main-content" class="main-content">
-        <section
-          id="active-study-block"
-          class="content-card active-study-block main-card"
-          aria-labelledby="active-study-block-heading"
-        >
+      <main
+        id="main-content"
+        class="main-content"
+        role="main"
+        aria-label="Active study area"
+      >
+        <section id="active-study-block" class="content-card active-study-block main-card study-card" aria-labelledby="active-study-block-heading">
           <div id="active-study-block-header" class="content-card-header">
             <h2 id="active-study-block-heading" class="content-card-heading">Active Study Block</h2>
           </div>
 
-          <article id="flashcard" class="flashcard-component flashcard" aria-labelledby="flashcard-question-text">
+          <article id="flashcard" class="flashcard-component flashcard card" role="region" aria-label="Flashcard" aria-live="polite">
             <div id="flashcard-inner" class="flashcard-inner" data-flashcard-state="front">
               <section id="flashcard-front" class="flashcard-face flashcard-front-face" aria-label="Flashcard front">
-                <p id="flashcard-question-label" class="flashcard-face-label flashcard-subject-badge">Question</p>
+                <span class="card-subject" id="card-subject">Biology</span>
+                <span class="card-difficulty easy" id="card-difficulty">Easy</span>
+                <p id="flashcard-question-label" class="flashcard-face-label">Question</p>
                 <h3 id="flashcard-question-text" class="flashcard-content-text">
-                  What is the role of mitochondria in a eukaryotic cell?
+                  What is the powerhouse of the cell?
                 </h3>
+                <span class="card-counter" id="card-counter">Card 1 of 20</span>
               </section>
 
               <section id="flashcard-back" class="flashcard-face flashcard-back-face" aria-label="Flashcard back">
                 <p id="flashcard-answer-label" class="flashcard-face-label">Answer</p>
                 <p id="flashcard-answer-text" class="flashcard-content-text">
-                  Mitochondria generate most of the cell's ATP through cellular respiration and help regulate metabolism.
+                  Mitochondria produce ATP through cellular respiration.
                 </p>
+                <div class="confidence-row" id="confidence-row" hidden>
+                  <span class="conf-label">How well did you know this?</span>
+                  <div class="conf-buttons">
+                    <button class="conf-btn" type="button" data-confidence="1" aria-label="I had no idea">😕 Didn't Know</button>
+                    <button class="conf-btn" type="button" data-confidence="2" aria-label="I partially knew">🤔 Partly</button>
+                    <button class="conf-btn" type="button" data-confidence="3" aria-label="I knew it well">✓ Got It</button>
+                  </div>
+                </div>
               </section>
             </div>
 
             <div id="flashcard-controls" class="flashcard-controls">
-              <button id="btn-flip" class="flashcard-flip-button" type="button">
+              <button id="btn-flip" class="flashcard-flip-button btn" type="button" aria-label="Flip the current flashcard">
                 Flip Card
               </button>
             </div>
@@ -376,9 +286,7 @@
 
           <section id="study-notes-section" class="study-notes-section" aria-labelledby="study-notes-heading">
             <h3 id="study-notes-heading" class="study-notes-heading">Study Notes</h3>
-            <label id="study-notes-label" class="sr-only" for="study-notes">
-              Study notes textarea
-            </label>
+            <label id="study-notes-label" class="sr-only" for="study-notes">Study notes</label>
             <textarea
               id="study-notes"
               class="study-notes-textarea"
@@ -390,13 +298,13 @@
 
           <section id="study-action-section" class="study-action-section" aria-label="Study actions">
             <div id="study-action-buttons" class="study-action-buttons">
-              <button id="btn-learned" class="study-action-button mark-learned-button" type="button">
+              <button id="btn-learned" class="study-action-button mark-learned-button btn" type="button" aria-label="Mark this flashcard as learned">
                 Mark as Learned
               </button>
-              <button id="btn-review" class="study-action-button review-later-button" type="button">
+              <button id="btn-review" class="study-action-button review-later-button btn" type="button" aria-label="Review this flashcard later">
                 Review Later
               </button>
-              <button id="btn-skip" class="study-action-button skip-card-button" type="button">
+              <button id="btn-skip" class="study-action-button skip-card-button btn" type="button" aria-label="Skip this flashcard">
                 Skip
               </button>
             </div>
@@ -404,137 +312,259 @@
         </section>
       </main>
 
-      <aside id="right-panel" class="right-panel" aria-labelledby="right-panel-title">
+      <aside
+        id="right-panel"
+        class="right-panel"
+        role="complementary"
+        aria-label="Cognitive load monitor"
+      >
         <div id="right-panel-header" class="right-panel-header">
           <h2 id="right-panel-title" class="right-panel-title">Insights</h2>
           <button
             id="btn-toggle-panel"
             class="panel-toggle-button"
             type="button"
-            aria-controls="right-panel-content"
+            aria-controls="right-panel"
             aria-expanded="true"
+            aria-label="Collapse insights panel"
           >
             Toggle Panel
           </button>
         </div>
 
         <div id="right-panel-content" class="right-panel-content">
-          <section
-            id="cognitive-load-monitor-section"
-            class="right-panel-section cognitive-load-monitor-section"
-            aria-labelledby="cognitive-load-monitor-heading"
-          >
-            <h3 id="cognitive-load-monitor-heading" class="right-panel-section-heading">
-              Cognitive Load Monitor
-            </h3>
+          <section id="cognitive-load-monitor-section" class="right-panel-section cognitive-load-monitor-section" aria-labelledby="cognitive-load-monitor-heading">
+            <h3 id="cognitive-load-monitor-heading" class="right-panel-section-heading">Cognitive Load Monitor</h3>
 
             <ul id="load-metrics-list" class="load-metrics-list">
               <li id="metric-row-cursor-entropy" class="load-metric-row">
-                <div id="metric-header-cursor-entropy" class="load-metric-header">
-                  <span id="metric-icon-cursor-entropy" class="load-metric-icon" aria-hidden="true">🖱️</span>
+                <div class="load-metric-header">
+                  <span class="load-metric-icon" aria-hidden="true">🖱️</span>
                   <span id="metric-label-cursor-entropy" class="load-metric-label">Cursor Entropy</span>
-                  <span id="value-cursor" class="load-metric-value">38</span>
+                  <span id="value-cursor" class="load-metric-value">0</span>
                 </div>
-                <div
-                  id="metric-bar-cursor-entropy"
-                  class="load-metric-bar"
-                  role="progressbar"
-                  aria-valuemin="0"
-                  aria-valuemax="100"
-                  aria-valuenow="38"
-                  aria-labelledby="metric-label-cursor-entropy"
-                >
-                  <span
-                    id="bar-cursor"
-                    class="load-metric-fill"
-                    style="width: 38%;"
-                  ></span>
+                <div id="metric-bar-cursor-entropy" class="load-metric-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-labelledby="metric-label-cursor-entropy">
+                  <span id="bar-cursor" class="load-metric-fill"></span>
                 </div>
               </li>
-
               <li id="metric-row-hesitation-index" class="load-metric-row">
-                <div id="metric-header-hesitation-index" class="load-metric-header">
-                  <span id="metric-icon-hesitation-index" class="load-metric-icon" aria-hidden="true">⏱️</span>
+                <div class="load-metric-header">
+                  <span class="load-metric-icon" aria-hidden="true">⏱️</span>
                   <span id="metric-label-hesitation-index" class="load-metric-label">Hesitation Index</span>
-                  <span id="value-hesitation" class="load-metric-value">57</span>
+                  <span id="value-hesitation" class="load-metric-value">0</span>
                 </div>
-                <div
-                  id="metric-bar-hesitation-index"
-                  class="load-metric-bar"
-                  role="progressbar"
-                  aria-valuemin="0"
-                  aria-valuemax="100"
-                  aria-valuenow="57"
-                  aria-labelledby="metric-label-hesitation-index"
-                >
-                  <span
-                    id="bar-hesitation"
-                    class="load-metric-fill"
-                    style="width: 57%;"
-                  ></span>
+                <div id="metric-bar-hesitation-index" class="load-metric-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-labelledby="metric-label-hesitation-index">
+                  <span id="bar-hesitation" class="load-metric-fill"></span>
                 </div>
               </li>
-
               <li id="metric-row-error-rate" class="load-metric-row">
-                <div id="metric-header-error-rate" class="load-metric-header">
-                  <span id="metric-icon-error-rate" class="load-metric-icon" aria-hidden="true">⌫</span>
+                <div class="load-metric-header">
+                  <span class="load-metric-icon" aria-hidden="true">⌫</span>
                   <span id="metric-label-error-rate" class="load-metric-label">Error Rate</span>
-                  <span id="value-error" class="load-metric-value">21</span>
+                  <span id="value-error" class="load-metric-value">0</span>
                 </div>
-                <div
-                  id="metric-bar-error-rate"
-                  class="load-metric-bar"
-                  role="progressbar"
-                  aria-valuemin="0"
-                  aria-valuemax="100"
-                  aria-valuenow="21"
-                  aria-labelledby="metric-label-error-rate"
-                >
-                  <span
-                    id="bar-error"
-                    class="load-metric-fill"
-                    style="width: 21%;"
-                  ></span>
+                <div id="metric-bar-error-rate" class="load-metric-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-labelledby="metric-label-error-rate">
+                  <span id="bar-error" class="load-metric-fill"></span>
                 </div>
               </li>
-
               <li id="metric-row-scroll-rhythm" class="load-metric-row">
-                <div id="metric-header-scroll-rhythm" class="load-metric-header">
-                  <span id="metric-icon-scroll-rhythm" class="load-metric-icon" aria-hidden="true">📜</span>
+                <div class="load-metric-header">
+                  <span class="load-metric-icon" aria-hidden="true">📜</span>
                   <span id="metric-label-scroll-rhythm" class="load-metric-label">Scroll Rhythm</span>
-                  <span id="value-scroll" class="load-metric-value">49</span>
+                  <span id="value-scroll" class="load-metric-value">0</span>
                 </div>
-                <div
-                  id="metric-bar-scroll-rhythm"
-                  class="load-metric-bar"
-                  role="progressbar"
-                  aria-valuemin="0"
-                  aria-valuemax="100"
-                  aria-valuenow="49"
-                  aria-labelledby="metric-label-scroll-rhythm"
-                >
-                  <span
-                    id="bar-scroll"
-                    class="load-metric-fill"
-                    style="width: 49%;"
-                  ></span>
+                <div id="metric-bar-scroll-rhythm" class="load-metric-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-labelledby="metric-label-scroll-rhythm">
+                  <span id="bar-scroll" class="load-metric-fill"></span>
                 </div>
               </li>
             </ul>
+
+            <div id="confidence-indicator" class="confidence-indicator">
+              <span class="confidence-level low">Signal Confidence: 0%</span>
+              <span class="confidence-caption">Still learning your baseline...</span>
+            </div>
           </section>
 
           <section id="load-history-section" class="right-panel-section load-history-section" aria-labelledby="load-history-heading">
             <h3 id="load-history-heading" class="right-panel-section-heading">Load History</h3>
-            <div id="sparkline-canvas" class="sparkline-canvas" aria-label="Load history sparkline area"></div>
+            <div id="sparkline-canvas" class="sparkline-canvas" aria-hidden="true"></div>
+          </section>
+
+          <section class="right-panel-section analytics-section" id="analytics-section">
+            <h3 class="right-panel-section-heading">Session Stats</h3>
+            <div class="stat-grid">
+              <div class="stat-tile">
+                <span class="stat-value" id="stat-cards-seen">0</span>
+                <span class="stat-label">Cards Seen</span>
+              </div>
+              <div class="stat-tile">
+                <span class="stat-value" id="stat-cards-learned">0</span>
+                <span class="stat-label">Learned</span>
+              </div>
+              <div class="stat-tile">
+                <span class="stat-value" id="stat-calm-time">0%</span>
+                <span class="stat-label">Calm Time</span>
+              </div>
+              <div class="stat-tile">
+                <span class="stat-value" id="stat-avg-load">0</span>
+                <span class="stat-label">Avg Load</span>
+              </div>
+            </div>
+            <button class="export-btn btn" id="btn-export-report" type="button" aria-label="Export session report">
+              ↓ Export Session Report
+            </button>
           </section>
         </div>
       </aside>
     </div>
 
-    <footer id="bottom-status-bar" class="bottom-status-bar">
-      <div id="status-bar-left" class="status-bar-segment status-bar-left">Adaptive Mode: Active</div>
-      <div id="status-bar-center" class="status-bar-segment status-bar-center">Optimal Focus</div>
-      <div id="status-bar-right" class="status-bar-segment status-bar-right">Session Quality: Good</div>
-    </footer>
+    <div id="status-bar" class="status-bar" role="contentinfo">
+      <div id="status-bar-left" class="status-bar-left">
+        <span class="status-dot" aria-hidden="true"></span>
+        <span>Adaptive Mode: Active</span>
+      </div>
+      <div id="status-bar-center" class="status-bar-center" aria-live="polite" aria-atomic="true">◈ Elevated Load Detected</div>
+      <div id="status-bar-right" class="status-bar-right">Session Quality: Good</div>
+    </div>
+
+    <button id="fab-quick-actions" class="fab-quick-actions btn" type="button" aria-controls="quick-actions-sheet" aria-expanded="false" aria-label="Open quick actions">
+      ☰
+    </button>
+
+    <div id="quick-actions-sheet" class="quick-actions-sheet" hidden>
+      <div class="quick-actions-handle" aria-hidden="true"></div>
+      <button id="btn-sheet-flip" class="quick-sheet-btn btn" type="button" aria-label="Flip current flashcard">Flip Card</button>
+      <button id="btn-sheet-skip" class="quick-sheet-btn btn" type="button" aria-label="Skip current flashcard">Skip</button>
+      <button id="btn-sheet-demo" class="quick-sheet-btn btn" type="button" aria-label="Toggle demo mode">Demo Mode</button>
+    </div>
+
+    <div id="shortcut-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts" hidden>
+      <div class="modal-card">
+        <button class="modal-close btn" id="btn-close-shortcuts" type="button" aria-label="Close shortcuts">✕</button>
+        <h2 class="modal-title">Keyboard Shortcuts</h2>
+        <div class="shortcut-list">
+          <div class="shortcut-row"><kbd>Space</kbd><span>Flip flashcard</span></div>
+          <div class="shortcut-row"><kbd>→</kbd><span>Next card</span></div>
+          <div class="shortcut-row"><kbd>L</kbd><span>Mark as Learned</span></div>
+          <div class="shortcut-row"><kbd>R</kbd><span>Flag for Review</span></div>
+          <div class="shortcut-row"><kbd>D</kbd><span>Toggle Demo Mode</span></div>
+          <div class="shortcut-row"><kbd>Ctrl</kbd><kbd>R</kbd><span>Research Overlay</span></div>
+          <div class="shortcut-row"><kbd>?</kbd><span>This shortcut guide</span></div>
+          <div class="shortcut-row"><kbd>Esc</kbd><span>Close any overlay</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="research-overlay" class="research-overlay" role="dialog" aria-modal="true" aria-label="HCI research report" hidden>
+      <div class="research-content">
+        <button class="research-close btn" id="btn-close-research" type="button" aria-label="Close research overlay">✕ Close</button>
+        <button class="research-print btn" id="btn-print-research" type="button" aria-label="Print research report">⎙ Print</button>
+
+        <header class="research-header">
+          <h1>Cognitive Load-Aware Interface Design</h1>
+          <h2>AdaptiveStudy — HCI Prototype Research Report</h2>
+          <p class="research-subtitle">
+            Behavioral signal fusion for real-time interface adaptation in educational environments
+          </p>
+        </header>
+
+        <div class="research-grid">
+          <section class="research-card research-full">
+            <div class="research-badge research-badge-blue">Abstract</div>
+            <p id="research-abstract">
+              AdaptiveStudy demonstrates real-time cognitive load estimation through passive behavioral monitoring,
+              adapting the study interface to reduce extraneous cognitive load and support learning efficiency.
+            </p>
+          </section>
+
+          <section class="research-card">
+            <div class="research-badge research-badge-blue">Methodology</div>
+            <ul class="research-list">
+              <li><strong>Cursor Entropy (25%):</strong> Angular deviation in movement vectors</li>
+              <li><strong>Hesitation Index (35%):</strong> Inter-event timing and hover pauses</li>
+              <li><strong>Error Rate (25%):</strong> Delete/backspace bursts in a 30s window</li>
+              <li><strong>Scroll Rhythm (15%):</strong> Speed and direction reversals in 10s</li>
+              <li><strong>EMA Smoothing:</strong> α = 0.3 with debounced mode switching</li>
+            </ul>
+          </section>
+
+          <section class="research-card">
+            <div class="research-badge research-badge-green">HCI Principles Applied</div>
+            <ul class="research-list">
+              <li><strong>Cognitive Load Theory</strong> (Sweller, 1988)</li>
+              <li><strong>Miller's Law</strong> through chunk reduction in Calm Mode</li>
+              <li><strong>Fitts' Law</strong> with larger relaxed targets under load</li>
+              <li><strong>Progressive Disclosure</strong> as complexity reduction</li>
+              <li><strong>Aesthetic-Usability Effect</strong> through calm visual design</li>
+              <li><strong>Nielsen Heuristic #1</strong> through visible feedback and state toasts</li>
+            </ul>
+          </section>
+
+          <section class="research-card research-full">
+            <div class="research-badge research-badge-blue">Live Session Metrics</div>
+            <div class="research-live-grid">
+              <div class="research-live-tile"><span id="research-avg-score">0</span><label>Average Load Score</label></div>
+              <div class="research-live-tile"><span id="research-peak-score">0</span><label>Peak Load Score</label></div>
+              <div class="research-live-tile"><span id="research-calm-pct">0%</span><label>Time in Calm Mode</label></div>
+              <div class="research-live-tile"><span id="research-switches">0</span><label>Mode Switches</label></div>
+              <div class="research-live-tile"><span id="research-cards-done">0</span><label>Cards Completed</label></div>
+              <div class="research-live-tile"><span id="research-session-time">00:00</span><label>Session Duration</label></div>
+            </div>
+          </section>
+
+          <section class="research-card">
+            <div class="research-badge research-badge-amber">Limitations</div>
+            <ul class="research-list">
+              <li>Behavioral proxies, not physiological ground truth</li>
+              <li>No EEG, pupillometry, or GSR integration</li>
+              <li>Rule-based thresholds rather than learned models</li>
+              <li>Static deck rather than cloud-backed content</li>
+            </ul>
+          </section>
+
+          <section class="research-card">
+            <div class="research-badge research-badge-green">Future Work</div>
+            <ul class="research-list">
+              <li>Per-user calibration and personalization</li>
+              <li>Spaced repetition with long-term schedules</li>
+              <li>Longitudinal analytics dashboards</li>
+              <li>Formal usability evaluation with student cohorts</li>
+            </ul>
+          </section>
+
+          <section class="research-card research-full">
+            <div class="research-badge research-badge-muted">References</div>
+            <ol class="research-refs">
+              <li>J. Sweller, "Cognitive load during problem solving," <em>Cognitive Science</em>, 1988.</li>
+              <li>F. Paas, A. Renkl, J. Sweller, "Cognitive load theory," <em>Educational Psychologist</em>, 2003.</li>
+              <li>S. G. Hart and L. E. Staveland, "NASA-TLX development," <em>Human Mental Workload</em>, 1988.</li>
+              <li>G. A. Miller, "The magical number seven," <em>Psychological Review</em>, 1956.</li>
+              <li>T. Yamauchi et al., "Reading emotion from mouse cursor motions," <em>Cognitive Science</em>, 2017.</li>
+            </ol>
+          </section>
+        </div>
+      </div>
+    </div>
+
+    <div id="onboarding-overlay" class="onboarding-overlay" role="dialog" aria-modal="true" aria-label="Welcome tour" hidden>
+      <div id="tour-spotlight" class="tour-spotlight"></div>
+      <div id="tour-tooltip" class="tour-tooltip">
+        <div class="tour-step-badge" id="tour-step-badge">Step 1 of 6</div>
+        <h3 class="tour-title" id="tour-title"></h3>
+        <p class="tour-body" id="tour-body"></p>
+        <div class="tour-nav">
+          <button id="btn-tour-prev" class="tour-btn-sec btn" type="button">← Back</button>
+          <div class="tour-dots" id="tour-dots"></div>
+          <button id="btn-tour-next" class="tour-btn-pri btn" type="button">Next →</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="js/cognitive-engine.js" defer></script>
+    <script src="js/study-content.js" defer></script>
+    <script src="js/ui-adapter.js" defer></script>
+    <script src="js/analytics.js" defer></script>
+    <script src="js/onboarding.js" defer></script>
+    <script src="js/dashboard.js" defer></script>
   </body>
 </html>
