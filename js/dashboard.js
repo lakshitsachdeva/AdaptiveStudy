@@ -5,9 +5,7 @@
     if (
       typeof window.CognitiveEngine !== "function" ||
       typeof window.UIAdapter !== "function" ||
-      !window.StudyContent ||
-      !window.SessionAnalytics ||
-      typeof window.OnboardingTour !== "function"
+      !window.StudyContent
     ) {
       return;
     }
@@ -15,7 +13,7 @@
     const engine = new window.CognitiveEngine();
     const ui = new window.UIAdapter();
     const content = window.StudyContent;
-    const analytics = window.SessionAnalytics;
+    const analytics = window.SessionAnalytics || createAnalyticsFallback();
     const scoreHistory = [];
 
     const body = document.body;
@@ -164,11 +162,17 @@
       }
     };
 
-    runWhenIdle(() => {
+    const initialMetrics = engine.getMetrics();
+    if (initialMetrics.calibrating && !calibrationUiResolved) {
+      ui.showCalibrationState(Number(initialMetrics.progress || 0), false);
+    }
+    applyMetrics(initialMetrics);
+
+    window.setTimeout(() => {
       if (!demoModeActive && !sessionEnded) {
         startRealPolling();
       }
-    }, 1200);
+    }, 80);
 
     window.setTimeout(() => {
       if (userName && ensureTour()?.shouldShow()) {
@@ -191,6 +195,36 @@
         attributes: true,
         attributeFilter: ["class"]
       });
+    }
+
+    function createAnalyticsFallback() {
+      return {
+        calibrated: false,
+        logEvent() {},
+        logLoadSample() {},
+        getStats() {
+          return {
+            sessionDurationMs: 0,
+            avgLoadScore: 0,
+            peakLoadScore: 0,
+            minLoadScore: 0,
+            timeInLow: 0,
+            timeInMedium: 0,
+            timeInHigh: 0,
+            calmModePct: 0,
+            modeSwitchCount: 0,
+            cardsSeen: 0,
+            cardsLearned: 0,
+            cardsReview: 0,
+            avgConfidence: null,
+            calibrated: false,
+            eventLog: []
+          };
+        },
+        exportReport() {
+          return { success: false, mode: "disabled" };
+        }
+      };
     }
 
     function isLocalEnvironment() {
@@ -862,15 +896,6 @@
 
     function clamp(value, min = 0, max = 100) {
       return Math.min(max, Math.max(min, value));
-    }
-
-    function runWhenIdle(callback, timeout = 1000) {
-      if (typeof window.requestIdleCallback === "function") {
-        window.requestIdleCallback(() => callback(), { timeout });
-        return;
-      }
-
-      window.setTimeout(callback, 0);
     }
 
     function debounce(callback, delay) {

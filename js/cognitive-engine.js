@@ -5,8 +5,10 @@
     constructor() {
       this.metricTickMs = 2000;
       this.cursorSampleIntervalMs = 100;
-      this.calibrationRequiredSamples = 30;
-      this.calibrationSampleIntervalMs = 250;
+      this.calibrationRequiredSamples = 12;
+      this.calibrationSampleIntervalMs = 180;
+      this.calibrationSoftTimeoutMs = 2000;
+      this.calibrationMaxDurationMs = 4500;
       this.compositeAlpha = 0.3;
       this.noiseLevel = 2;
       this.demoMode = false;
@@ -234,6 +236,7 @@
 
     refreshMetrics(force) {
       const timestamp = this.now();
+      this.updateCalibrationState(timestamp);
 
       if (!force && timestamp - this.lastMetricsUpdateAt < this.metricTickMs * 0.8) {
         return;
@@ -311,12 +314,36 @@
       });
 
       this.calibrationProgress = this.clamp(
-        (this.calibrationSamples.length / this.calibrationRequiredSamples) * 100,
+        Math.max(this.calibrationProgress, (this.calibrationSamples.length / this.calibrationRequiredSamples) * 100),
         0,
-        100
+        99
       );
 
       if (this.calibrationSamples.length >= this.calibrationRequiredSamples || this.demoMode) {
+        this.completeCalibration();
+      }
+    }
+
+    updateCalibrationState(timestamp) {
+      if (!this.isCalibrating || this.calibrationComplete || this.calibrationStartedAt === null) {
+        return;
+      }
+
+      const elapsed = Math.max(0, timestamp - this.calibrationStartedAt);
+      const sampleRatio = this.calibrationSamples.length / this.calibrationRequiredSamples;
+      const timeRatio = this.clamp(elapsed / this.calibrationMaxDurationMs, 0, 1);
+      const blendedProgress = Math.max(sampleRatio, timeRatio * 0.9);
+
+      this.calibrationProgress = this.clamp(
+        Math.max(this.calibrationProgress, blendedProgress * 100),
+        0,
+        99
+      );
+
+      if (
+        elapsed >= this.calibrationMaxDurationMs ||
+        (elapsed >= this.calibrationSoftTimeoutMs && this.calibrationSamples.length >= 4)
+      ) {
         this.completeCalibration();
       }
     }
@@ -329,9 +356,13 @@
       this.isCalibrating = false;
       this.calibrationComplete = true;
       this.calibrationProgress = 100;
-      this.baselineCursor = this.average(this.calibrationSamples.map((sample) => sample.cursor));
-      this.baselineHesitation = this.average(this.calibrationSamples.map((sample) => sample.hesitation));
-      this.baselineScroll = this.average(this.calibrationSamples.map((sample) => sample.scroll));
+      const fallbackTimestamp = this.now();
+      const cursorSamples = this.calibrationSamples.map((sample) => sample.cursor);
+      const hesitationSamples = this.calibrationSamples.map((sample) => sample.hesitation);
+      const scrollSamples = this.calibrationSamples.map((sample) => sample.scroll);
+      this.baselineCursor = cursorSamples.length ? this.average(cursorSamples) : this.computeCursorEntropy(fallbackTimestamp);
+      this.baselineHesitation = hesitationSamples.length ? this.average(hesitationSamples) : this.computeHesitationIndex(fallbackTimestamp);
+      this.baselineScroll = scrollSamples.length ? this.average(scrollSamples) : this.computeScrollRhythm(fallbackTimestamp);
 
       const payload = this.buildCalibrationPayload();
 
@@ -577,8 +608,11 @@
         this.clamp((this.eventCounts.click / 20) * 100, 0, 100) * weights.click +
         this.clamp((this.eventCounts.keystroke / 40) * 100, 0, 100) * weights.keystroke +
         this.clamp((this.eventCounts.scroll / 30) * 100, 0, 100) * weights.scroll;
+      const confidenceFloor = this.calibrationComplete
+        ? 52
+        : this.clamp(this.calibrationProgress * 0.65, 0, 65);
 
-      return Math.round(this.clamp(normalized, 0, 100));
+      return Math.round(this.clamp(Math.max(normalized, confidenceFloor), 0, 100));
     }
 
     getSignalQuality() {
@@ -659,6 +693,7 @@
         this.calibrationStartedAt = this.now();
         this.calibrationSamples = [];
         this.lastCalibrationSampleAt = 0;
+        this.calibrationProgress = 8;
       }
 
       callback(this.getMetrics());
