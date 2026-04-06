@@ -171,9 +171,21 @@
 
     function startRealPolling() {
       engine.startPolling((metrics) => {
-        if (metrics.calibrating) {
-          ui.showCalibrationState(metrics.progress, false);
-          return;
+        if (metrics.calibrating && !calibrationUiResolved) {
+          const progress = Number(metrics.progress || 0);
+
+          if (progress >= 95) {
+            calibrationUiResolved = true;
+            ui.showCalibrationState(100, true);
+            analytics.calibrated = true;
+            analytics.logEvent("calibration_complete", {
+              baselines: null,
+              confidence: metrics.confidence ?? null,
+              resolvedBy: "ui-threshold"
+            });
+          } else {
+            ui.showCalibrationState(progress, false);
+          }
         }
 
         applyMetrics(metrics);
@@ -185,7 +197,7 @@
         return;
       }
 
-      if (!calibrationUiResolved) {
+      if (!calibrationUiResolved && !metrics.calibrating) {
         calibrationUiResolved = true;
         ui.showCalibrationState(100, true);
         analytics.calibrated = true;

@@ -536,15 +536,7 @@
 
     getMetrics() {
       this.refreshMetrics();
-
-      if (this.isCalibrating && !this.calibrationComplete) {
-        return {
-          calibrating: true,
-          progress: Math.round(this.calibrationProgress)
-        };
-      }
-
-      return {
+      const metrics = {
         cursorEntropy: Math.round(this.cursorEntropy),
         hesitationIndex: Math.round(this.hesitationIndex),
         errorRate: Math.round(this.errorRate),
@@ -553,6 +545,13 @@
         state: this.getLoadStateFromScore(this.compositeScore),
         confidence: this.getConfidence()
       };
+
+      if (this.isCalibrating && !this.calibrationComplete) {
+        metrics.calibrating = true;
+        metrics.progress = Math.round(this.calibrationProgress);
+      }
+
+      return metrics;
     }
 
     getConfidence() {
