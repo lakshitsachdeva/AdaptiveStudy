@@ -53,6 +53,19 @@
     let lastDemoPhase = null;
     let userName = loadUserName();
     let sessionEnded = false;
+    let calibrationUiResolved = false;
+
+    engine.onCalibrationComplete((data) => {
+      if (calibrationUiResolved) {
+        return;
+      }
+
+      calibrationUiResolved = true;
+      ui.showCalibrationState(100, true);
+      ui.showToast("Calibrated to your interaction style", "success");
+      analytics.calibrated = true;
+      analytics.logEvent("calibration_complete", data);
+    });
 
     content.renderCard();
     restoreNotes();
@@ -69,13 +82,6 @@
     startRealPolling();
     initializeWelcome();
     analytics.logEvent("card_seen", { subject: content.getCurrentCard()?.subject || null });
-
-    engine.onCalibrationComplete((data) => {
-      ui.showCalibrationState(100, true);
-      ui.showToast("Calibrated to your interaction style", "success");
-      analytics.calibrated = true;
-      analytics.logEvent("calibration_complete", data);
-    });
 
     document.getElementById("btn-tour")?.addEventListener("click", () => {
       tour.start();
@@ -177,6 +183,17 @@
     function applyMetrics(metrics) {
       if (sessionEnded) {
         return;
+      }
+
+      if (!calibrationUiResolved) {
+        calibrationUiResolved = true;
+        ui.showCalibrationState(100, true);
+        analytics.calibrated = true;
+        analytics.logEvent("calibration_complete", {
+          baselines: null,
+          confidence: metrics.confidence ?? null,
+          resolvedBy: "metrics-fallback"
+        });
       }
 
       ui.updateMetricBars(metrics);

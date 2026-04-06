@@ -321,14 +321,7 @@
       this.baselineHesitation = this.average(this.calibrationSamples.map((sample) => sample.hesitation));
       this.baselineScroll = this.average(this.calibrationSamples.map((sample) => sample.scroll));
 
-      const payload = {
-        baselines: {
-          cursor: Math.round(this.baselineCursor),
-          hesitation: Math.round(this.baselineHesitation),
-          scroll: Math.round(this.baselineScroll)
-        },
-        confidence: this.getConfidence()
-      };
+      const payload = this.buildCalibrationPayload();
 
       for (const callback of this.calibrationCallbacks) {
         if (typeof callback === "function") {
@@ -626,9 +619,16 @@
     }
 
     onCalibrationComplete(callback) {
-      if (typeof callback === "function") {
-        this.calibrationCallbacks.push(callback);
+      if (typeof callback !== "function") {
+        return;
       }
+
+      if (this.calibrationComplete) {
+        callback(this.buildCalibrationPayload());
+        return;
+      }
+
+      this.calibrationCallbacks.push(callback);
     }
 
     startPolling(callback, intervalMs = 500) {
@@ -674,6 +674,17 @@
           correctionBurstActive: false
         }
       );
+    }
+
+    buildCalibrationPayload() {
+      return {
+        baselines: {
+          cursor: Math.round(this.baselineCursor),
+          hesitation: Math.round(this.baselineHesitation),
+          scroll: Math.round(this.baselineScroll)
+        },
+        confidence: this.getConfidence()
+      };
     }
 
     isPrintableEntry(event, target) {
