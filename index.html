@@ -101,6 +101,9 @@
         <button class="nav-btn" id="btn-end-session" type="button" aria-label="End study session">
           Finish Session
         </button>
+        <button class="nav-btn" id="btn-reset-session" type="button" aria-label="Reset saved session data">
+          Reset
+        </button>
         <span id="demo-badge" class="demo-mode-badge" hidden>DEMO</span>
       </div>
     </header>
@@ -135,6 +138,12 @@
           <section id="todays-topics-section" class="sidebar-section todays-topics-section">
             <h3 id="todays-topics-heading" class="sidebar-section-heading">Today's Topics</h3>
             <ul id="topics-list" class="topics-list">
+              <li class="topics-list-item">
+                <button id="topic-pill-all" class="topic-pill-button topic-pill" type="button" data-topic="All" aria-label="Show all subject cards">
+                  <span class="pill-label">All Topics</span>
+                  <span class="pill-count" aria-hidden="true">20</span>
+                </button>
+              </li>
               <li class="topics-list-item">
                 <button id="topic-pill-biology" class="topic-pill-button topic-pill" type="button" data-topic="Biology" aria-label="Show Biology cards">
                   <span class="pill-label">Biology</span>
@@ -496,6 +505,7 @@
         <label class="welcome-label" for="user-name-input">Your Name</label>
         <input id="user-name-input" class="welcome-input" type="text" maxlength="40" placeholder="e.g. Lakshit" />
         <div class="welcome-actions">
+          <button id="btn-skip-name" class="tour-btn-sec btn" type="button">Maybe Later</button>
           <button id="btn-start-session" class="tour-btn-pri btn" type="button">Start Session</button>
         </div>
       </div>

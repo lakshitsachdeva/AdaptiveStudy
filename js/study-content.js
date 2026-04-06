@@ -358,13 +358,7 @@
 
     filterBySubject(subject) {
       const nextFilter = SUBJECTS.includes(subject) ? subject : null;
-
-      if (this.subjectFilter === nextFilter) {
-        this.subjectFilter = null;
-      } else {
-        this.subjectFilter = nextFilter;
-      }
-
+      this.subjectFilter = nextFilter;
       this.applyFilters();
     }
 
@@ -456,10 +450,11 @@
     }
 
     syncTopicPills(card) {
-      const activeSubject = this.subjectFilter || (card ? card.subject : "");
+      const activeSubject = this.subjectFilter || "All";
 
       for (const button of this.topicButtons) {
-        const active = button.dataset.topic === activeSubject;
+        const buttonTopic = button.dataset.topic || "";
+        const active = buttonTopic === activeSubject;
         button.classList.toggle("active", active);
         button.classList.toggle("is-active", active);
         button.setAttribute("aria-pressed", active ? "true" : "false");
@@ -622,6 +617,39 @@
       } catch (error) {
         console.warn("[AdaptiveStudy] Unable to restore study state:", error);
       }
+    }
+
+    clearPersistedState() {
+      this.learnedIds = new Set();
+      this.reviewIds = new Set();
+      this.confidenceHistory = {};
+      this.subjectFilter = null;
+      this.filterMode = "all";
+
+      for (const card of FLASHCARD_DECK) {
+        this.reviewMeta[card.id] = {
+          nextReviewScore: 0,
+          interval: 1,
+          easeFactor: 2.5
+        };
+        this.cardStats[card.id] = {
+          seen: 0,
+          flipped: 0,
+          learned: false,
+          reviewFlagged: false,
+          avgConfidence: null,
+          lastSeen: null
+        };
+      }
+
+      try {
+        window.localStorage.removeItem(STORAGE_KEY);
+      } catch (error) {
+        console.warn("[AdaptiveStudy] Unable to clear study state:", error);
+      }
+
+      this.applyFilters();
+      this.updateProgress();
     }
   }
 

@@ -31,6 +31,7 @@
     const welcomeModal = document.getElementById("welcome-modal");
     const nameInput = document.getElementById("user-name-input");
     const startSessionButton = document.getElementById("btn-start-session");
+    const skipNameButton = document.getElementById("btn-skip-name");
     const sessionSummaryOverlay = document.getElementById("session-summary-overlay");
     const sessionSummaryTitle = document.getElementById("session-summary-title");
     const sessionSummarySubtitle = document.getElementById("session-summary-subtitle");
@@ -38,6 +39,7 @@
     const summaryCloseButton = document.getElementById("btn-close-session-summary");
     const summaryExportButton = document.getElementById("btn-summary-export");
     const startNewSessionButton = document.getElementById("btn-start-new-session");
+    const resetSessionButton = document.getElementById("btn-reset-session");
 
     let sessionSeconds = 0;
     let breakSuggestionShown = false;
@@ -205,6 +207,8 @@
         window.location.reload();
       });
       startSessionButton?.addEventListener("click", saveUserNameFromInput);
+      skipNameButton?.addEventListener("click", skipNameForNow);
+      resetSessionButton?.addEventListener("click", resetEverything);
 
       demoToggleButton?.addEventListener("click", toggleDemoMode);
 
@@ -223,7 +227,8 @@
     function wireTopicPills() {
       document.querySelectorAll(".topic-pill-button").forEach((button) => {
         button.addEventListener("click", () => {
-          content.filterBySubject(button.dataset.topic || "");
+          const subject = button.dataset.topic || "";
+          content.filterBySubject(subject === "All" ? null : subject);
         });
       });
     }
@@ -397,7 +402,7 @@
 
       document.querySelectorAll(".topic-pill-button").forEach((button) => {
         const subject = button.dataset.topic || "";
-        const count = counts[subject] || 0;
+        const count = subject === "All" ? (window.FLASHCARD_DECK || []).length : counts[subject] || 0;
         const countBadge = button.querySelector(".pill-count");
 
         if (countBadge) {
@@ -664,6 +669,24 @@
       }
     }
 
+    function skipNameForNow() {
+      userName = "";
+
+      try {
+        window.localStorage.removeItem("adaptivestudy-user-name");
+      } catch (error) {
+        console.warn("[AdaptiveStudy] Unable to clear user name:", error);
+      }
+
+      if (welcomeModal) {
+        welcomeModal.hidden = true;
+      }
+
+      if (tour.shouldShow()) {
+        window.setTimeout(() => tour.start(), 700);
+      }
+    }
+
     function exportSessionReport() {
       const result = analytics.exportReport({ userName: userName || "Learner" });
 
@@ -735,6 +758,25 @@
       const minutes = Math.floor(totalSeconds / 60);
       const seconds = totalSeconds % 60;
       return String(minutes).padStart(2, "0") + ":" + String(seconds).padStart(2, "0");
+    }
+
+    function resetEverything() {
+      const confirmed = window.confirm("Reset notes, study progress, saved name, and tour state for a fresh session?");
+
+      if (!confirmed) {
+        return;
+      }
+
+      try {
+        window.localStorage.removeItem("adaptivestudy-notes");
+        window.localStorage.removeItem("adaptivestudy-user-name");
+        window.localStorage.removeItem("adaptivestudy-tour-complete");
+      } catch (error) {
+        console.warn("[AdaptiveStudy] Unable to clear local storage:", error);
+      }
+
+      content.clearPersistedState?.();
+      window.location.reload();
     }
   });
 })();
