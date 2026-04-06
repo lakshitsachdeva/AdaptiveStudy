@@ -199,6 +199,10 @@
     }
 
     function startSessionTimer() {
+      if (timerIntervalId !== null) {
+        window.clearInterval(timerIntervalId);
+      }
+
       timerIntervalId = window.setInterval(() => {
         if (sessionEnded) {
           return;
@@ -586,7 +590,7 @@
           ui.showToast("Demo complete — try interacting normally now!", "success");
           analytics.logEvent("demo_mode_end", { duration: 20000 });
         }
-      }, 500);
+      }, 1000);
     }
 
     function stopDemoMode() {
