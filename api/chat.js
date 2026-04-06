@@ -32,8 +32,9 @@ module.exports = async function handler(req, res) {
   }
 
   const origin = req.headers.origin || "";
+  const requestHost = req.headers["x-forwarded-host"] || req.headers.host || "";
 
-  if (!isAllowedOrigin(origin)) {
+  if (!isAllowedOrigin(origin, requestHost)) {
     res.status(403).json({ error: "Origin not allowed.", code: "bad_origin" });
     return;
   }
@@ -85,20 +86,42 @@ function setJsonHeaders(res) {
   res.setHeader("Cache-Control", "no-store");
 }
 
-function isAllowedOrigin(origin) {
+function isAllowedOrigin(origin, requestHost) {
   if (!origin) {
     return true;
   }
 
-  const allowList = new Set([
-    "http://localhost:3000",
-    "http://localhost:8000",
-    "http://127.0.0.1:3000",
-    "http://127.0.0.1:8000"
-  ]);
+  let originUrl;
+
+  try {
+    originUrl = new URL(origin);
+  } catch (error) {
+    return false;
+  }
+
+  if (
+    originUrl.hostname === "localhost" ||
+    originUrl.hostname === "127.0.0.1"
+  ) {
+    return true;
+  }
+
+  if (requestHost && originUrl.host === requestHost) {
+    return true;
+  }
+
+  if (originUrl.hostname.endsWith(".vercel.app")) {
+    return true;
+  }
+
+  const allowList = new Set();
 
   if (process.env.VERCEL_URL) {
     allowList.add("https://" + process.env.VERCEL_URL);
+  }
+
+  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
+    allowList.add("https://" + process.env.VERCEL_PROJECT_PRODUCTION_URL);
   }
 
   if (process.env.ALLOWED_ORIGINS) {
