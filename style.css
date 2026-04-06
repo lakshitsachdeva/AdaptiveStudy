@@ -46,6 +46,20 @@ html {
   scroll-behavior: smooth;
 }
 
+html.submission-safe {
+  scroll-behavior: auto;
+}
+
+html.submission-safe *,
+html.submission-safe *::before,
+html.submission-safe *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  transition-delay: 0ms !important;
+  scroll-behavior: auto !important;
+}
+
 body {
   min-height: 100vh;
   margin: 0;
@@ -77,6 +91,51 @@ body.performance-mode .bg-mesh,
 body.performance-mode #cursor-dot,
 body.performance-mode #cursor-ring {
   display: none !important;
+}
+
+html.submission-safe body {
+  background: var(--bg-primary);
+}
+
+html.submission-safe .bg-mesh,
+html.submission-safe #state-wash,
+html.submission-safe #cursor-dot,
+html.submission-safe #cursor-ring,
+html.submission-safe .app-shell-filter-defs,
+html.submission-safe .mode-wave {
+  display: none !important;
+}
+
+html.submission-safe .top-navbar,
+html.submission-safe .status-bar,
+html.submission-safe .navbar-control-cluster,
+html.submission-safe .navbar-tool-cluster,
+html.submission-safe .navbar-session-cluster,
+html.submission-safe .left-sidebar,
+html.submission-safe .right-panel,
+html.submission-safe .main-content-area,
+html.submission-safe .card,
+html.submission-safe .content-card,
+html.submission-safe .study-card,
+html.submission-safe .flashcard,
+html.submission-safe .sidebar-section,
+html.submission-safe .right-panel-section,
+html.submission-safe .toast,
+html.submission-safe .modal-card,
+html.submission-safe .session-summary-card,
+html.submission-safe .report-card {
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  filter: none !important;
+}
+
+html.submission-safe .card:hover,
+html.submission-safe .content-card:hover,
+html.submission-safe .flashcard:hover,
+html.submission-safe .topic-pill:hover,
+html.submission-safe .nav-btn:hover,
+html.submission-safe .study-action-button:hover {
+  transform: none !important;
 }
 
 body.performance-mode .card:hover,

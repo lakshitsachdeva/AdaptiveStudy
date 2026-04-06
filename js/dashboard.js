@@ -15,6 +15,7 @@
     const content = window.StudyContent;
     const analytics = window.SessionAnalytics || createAnalyticsFallback();
     const scoreHistory = [];
+    const isSubmissionSafe = document.documentElement.classList.contains("submission-safe");
 
     const body = document.body;
     const layoutBackdrop = document.getElementById("layout-backdrop");
@@ -91,7 +92,9 @@
     wirePanelTabs();
     updateTopicPillCounts();
     syncPanelButtonStates();
-    observeLayoutState();
+    if (!isSubmissionSafe) {
+      observeLayoutState();
+    }
     initializeWelcome();
     ui.updateMasteryBars(content.getSubjectMastery());
     analytics.logEvent("card_seen", { subject: content.getCurrentCard()?.subject || null });
@@ -107,9 +110,11 @@
     }
 
     window.addEventListener("resize", syncPanelButtonStates);
-    window.addEventListener("scroll", () => {
-      document.getElementById("navbar")?.classList.toggle("scrolled", window.scrollY > 10);
-    }, { passive: true });
+    if (!isSubmissionSafe) {
+      window.addEventListener("scroll", () => {
+        document.getElementById("navbar")?.classList.toggle("scrolled", window.scrollY > 10);
+      }, { passive: true });
+    }
     window.addEventListener("beforeunload", () => {
       if (!notesField || isResetting) {
         return;
@@ -172,7 +177,7 @@
       if (!demoModeActive && !sessionEnded) {
         startRealPolling();
       }
-    }, 80);
+    }, isSubmissionSafe ? 40 : 80);
 
     window.setTimeout(() => {
       if (userName && ensureTour()?.shouldShow()) {
@@ -271,7 +276,7 @@
         }
 
         applyMetrics(metrics);
-      }, 2000);
+      }, isSubmissionSafe ? 2500 : 2000);
     }
 
     function applyMetrics(metrics) {

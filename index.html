@@ -4,6 +4,19 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AdaptiveStudy</title>
+    <script>
+      (function () {
+        var params = new URLSearchParams(window.location.search);
+        var host = window.location.hostname;
+        var shouldUseSafeMode =
+          (host === "127.0.0.1" || host === "localhost" || params.has("safe")) &&
+          !params.has("full");
+
+        if (shouldUseSafeMode) {
+          document.documentElement.classList.add("submission-safe");
+        }
+      })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
