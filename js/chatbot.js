@@ -136,7 +136,5 @@
     }
   }
 
-  document.addEventListener("DOMContentLoaded", () => {
-    window.AdaptiveStudyChatbot = new AdaptiveStudyChatbot();
-  });
+  window.AdaptiveStudyChatbot = AdaptiveStudyChatbot;
 })();

@@ -3,13 +3,10 @@
 
   class CognitiveEngine {
     constructor() {
-      this.localSafeMode =
-        typeof window !== "undefined" &&
-        (window.location.hostname === "localhost" ||
-          window.location.hostname === "127.0.0.1" ||
-          window.location.hostname === "");
-      this.metricTickMs = 500;
-      this.cursorSampleIntervalMs = 50;
+      this.metricTickMs = 2000;
+      this.cursorSampleIntervalMs = 100;
+      this.calibrationRequiredSamples = 30;
+      this.calibrationSampleIntervalMs = 250;
       this.compositeAlpha = 0.3;
       this.noiseLevel = 2;
       this.demoMode = false;
@@ -60,16 +57,14 @@
       this.calibrationComplete = false;
       this.calibrationProgress = 0;
       this.calibrationStartedAt = null;
-      this.calibrationDurationMs = 15000;
       this.calibrationSamples = [];
+      this.lastCalibrationSampleAt = 0;
       this.baselineCursor = 0;
       this.baselineHesitation = 0;
       this.baselineScroll = 0;
       this.calibrationCallbacks = [];
-      this.calibrationTimeoutId = null;
 
       this.pollingIntervalId = null;
-      this.metricIntervalId = null;
 
       this.handleMouseMove = this.handleMouseMove.bind(this);
       this.handleClick = this.handleClick.bind(this);
@@ -81,7 +76,7 @@
     }
 
     startSensorListeners() {
-      if (typeof document === "undefined" || this.localSafeMode) {
+      if (typeof document === "undefined") {
         return;
       }
 
@@ -89,17 +84,10 @@
       document.addEventListener("click", this.handleClick, { passive: true });
       document.addEventListener("keydown", this.handleKeyDown, { passive: true });
       document.addEventListener("scroll", this.handleScroll, { passive: true, capture: true });
-
-      if (typeof window !== "undefined") {
-        this.metricIntervalId = window.setInterval(() => {
-          this.refreshMetrics();
-        }, this.metricTickMs);
-      }
     }
 
     handleMouseMove(event) {
       const timestamp = this.now();
-      this.eventCounts.mouseMove += 1;
 
       if (timestamp - this.lastMouseSampleAt < this.cursorSampleIntervalMs) {
         this.lastMouseMoveAt = timestamp;
@@ -107,6 +95,7 @@
         return;
       }
 
+      this.eventCounts.mouseMove += 1;
       this.lastMouseSampleAt = timestamp;
       this.lastMouseMoveAt = timestamp;
       this.lastHoverPauseMark = 0;
@@ -120,6 +109,8 @@
       if (this.cursorPositions.length > 20) {
         this.cursorPositions.shift();
       }
+
+      this.capturePassiveCalibration(timestamp);
     }
 
     handleClick() {
@@ -183,6 +174,8 @@
         speed: Math.abs(delta) / deltaTime,
         timestamp
       });
+
+      this.capturePassiveCalibration(timestamp);
     }
 
     recordInteraction() {
@@ -197,6 +190,8 @@
       if (this.interactionIntervals.length > 10) {
         this.interactionIntervals.shift();
       }
+
+      this.capturePassiveCalibration(timestamp);
 
       return timestamp;
     }
@@ -252,10 +247,6 @@
       const rawError = this.computeErrorRate();
       const rawScroll = this.computeScrollRhythm(timestamp);
 
-      if (this.isCalibrating && !this.calibrationComplete) {
-        this.captureCalibrationSample(rawCursor, rawHesitation, rawScroll, timestamp);
-      }
-
       const cursorBase = this.calibrationComplete ? this.baselineCursor : 0;
       const hesitationBase = this.calibrationComplete ? this.baselineHesitation : 0;
       const scrollBase = this.calibrationComplete ? this.baselineScroll : 0;
@@ -296,21 +287,36 @@
       }
     }
 
-    captureCalibrationSample(cursor, hesitation, scroll, timestamp) {
+    capturePassiveCalibration(timestamp) {
+      if (!this.isCalibrating || this.calibrationComplete) {
+        return;
+      }
+
+      if (timestamp - this.lastCalibrationSampleAt < this.calibrationSampleIntervalMs) {
+        return;
+      }
+
       if (this.calibrationStartedAt === null) {
         this.calibrationStartedAt = timestamp;
       }
 
+      this.lastCalibrationSampleAt = timestamp;
+      this.pruneEventWindows(timestamp);
+      this.registerHoverPause(timestamp);
+
       this.calibrationSamples.push({
-        cursor,
-        hesitation,
-        scroll
+        cursor: this.computeCursorEntropy(timestamp),
+        hesitation: this.computeHesitationIndex(timestamp),
+        scroll: this.computeScrollRhythm(timestamp)
       });
 
-      const elapsed = timestamp - this.calibrationStartedAt;
-      this.calibrationProgress = this.clamp((elapsed / this.calibrationDurationMs) * 100, 0, 100);
+      this.calibrationProgress = this.clamp(
+        (this.calibrationSamples.length / this.calibrationRequiredSamples) * 100,
+        0,
+        100
+      );
 
-      if (elapsed >= this.calibrationDurationMs || this.demoMode) {
+      if (this.calibrationSamples.length >= this.calibrationRequiredSamples || this.demoMode) {
         this.completeCalibration();
       }
     }
@@ -320,7 +326,6 @@
         return;
       }
 
-      this.clearCalibrationTimeout();
       this.isCalibrating = false;
       this.calibrationComplete = true;
       this.calibrationProgress = 100;
@@ -653,7 +658,7 @@
         this.isCalibrating = true;
         this.calibrationStartedAt = this.now();
         this.calibrationSamples = [];
-        this.scheduleCalibrationTimeout();
+        this.lastCalibrationSampleAt = 0;
       }
 
       callback(this.getMetrics());
@@ -669,28 +674,6 @@
       }
 
       this.pollingIntervalId = null;
-    }
-
-    scheduleCalibrationTimeout() {
-      if (typeof window === "undefined") {
-        return;
-      }
-
-      this.clearCalibrationTimeout();
-      this.calibrationTimeoutId = window.setTimeout(() => {
-        if (!this.calibrationComplete) {
-          this.calibrationProgress = 100;
-          this.completeCalibration();
-        }
-      }, this.calibrationDurationMs + 500);
-    }
-
-    clearCalibrationTimeout() {
-      if (this.calibrationTimeoutId !== null && typeof window !== "undefined") {
-        window.clearTimeout(this.calibrationTimeoutId);
-      }
-
-      this.calibrationTimeoutId = null;
     }
 
     getTextSession(target) {

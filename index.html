@@ -4,43 +4,23 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AdaptiveStudy</title>
-    <script>
-      (function () {
-        const hostname = window.location.hostname;
-        const localEnvironment = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "";
-
-        if (localEnvironment) {
-          document.documentElement.classList.add("local-font-fallback");
-          return;
-        }
-
-        const googleFontsHref = "https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Playfair+Display:wght@600;700&display=swap";
-        const preconnectOne = document.createElement("link");
-        const preconnectTwo = document.createElement("link");
-        const preload = document.createElement("link");
-        const stylesheet = document.createElement("link");
-
-        preconnectOne.rel = "preconnect";
-        preconnectOne.href = "https://fonts.googleapis.com";
-        preconnectTwo.rel = "preconnect";
-        preconnectTwo.href = "https://fonts.gstatic.com";
-        preconnectTwo.crossOrigin = "anonymous";
-        preload.rel = "preload";
-        preload.as = "style";
-        preload.href = googleFontsHref;
-        stylesheet.rel = "stylesheet";
-        stylesheet.href = googleFontsHref;
-        stylesheet.media = "print";
-        stylesheet.onload = function () {
-          this.media = "all";
-        };
-
-        document.head.append(preconnectOne, preconnectTwo, preload, stylesheet);
-      })();
-    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@400;500;600;700&display=swap"
+      media="print"
+      onload="this.media='all'"
+    />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@400;500;600;700&display=swap"
+      />
+    </noscript>
     <link rel="stylesheet" href="style.css" />
   </head>
-  <body id="adaptive-study-app" class="adaptive-study-shell app-shell load-medium">
+  <body id="adaptive-study-app" class="adaptive-study-shell app-shell load-medium" data-load-state="medium">
     <div id="cursor-dot" aria-hidden="true"></div>
     <div id="cursor-ring" aria-hidden="true"></div>
     <div class="bg-mesh" aria-hidden="true"></div>
@@ -151,21 +131,30 @@
           </div>
 
           <div class="navbar-tool-cluster" aria-label="Study utilities">
-            <button id="btn-demo" class="navbar-demo-button nav-btn nav-btn-emphasis" type="button" aria-pressed="false" aria-label="Toggle demo mode">
-              Demo Mode
-            </button>
-            <button class="nav-btn nav-btn-secondary" id="btn-shortcuts" type="button" aria-label="Keyboard shortcuts (press question mark)">
-              ⌨ Shortcuts
-            </button>
-            <button class="nav-btn nav-btn-secondary" id="btn-tour" type="button" aria-label="Start guided tour">◎ Tour</button>
+            <div class="navbar-overflow">
+              <button class="nav-btn nav-btn-secondary" id="btn-navbar-menu" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="Open tools menu">
+                ⋯ More
+              </button>
+              <div id="navbar-overflow-menu" class="navbar-overflow-menu" role="menu" hidden>
+                <button id="btn-demo" class="navbar-demo-button nav-btn nav-btn-emphasis nav-btn-menu" type="button" aria-pressed="false" aria-label="Toggle demo mode" role="menuitem">
+                  Demo Mode
+                </button>
+                <button class="nav-btn nav-btn-secondary nav-btn-menu" id="btn-shortcuts" type="button" aria-label="Keyboard shortcuts (press question mark)" role="menuitem">
+                  ⌨ Shortcuts
+                </button>
+                <button class="nav-btn nav-btn-secondary nav-btn-menu" id="btn-tour" type="button" aria-label="Start guided tour" role="menuitem">
+                  ◎ Tour
+                </button>
+                <button class="nav-btn nav-btn-secondary nav-btn-danger nav-btn-menu" id="btn-reset-session" type="button" aria-label="Reset saved session data" role="menuitem">
+                  Reset
+                </button>
+              </div>
+            </div>
           </div>
 
           <div class="navbar-session-cluster" aria-label="Session controls">
             <button class="nav-btn nav-btn-primary" id="btn-end-session" type="button" aria-label="End study session">
               Finish Session
-            </button>
-            <button class="nav-btn nav-btn-secondary nav-btn-danger" id="btn-reset-session" type="button" aria-label="Reset saved session data">
-              Reset
             </button>
             <span id="demo-badge" class="demo-mode-badge" hidden>DEMO</span>
           </div>
@@ -246,61 +235,53 @@
 
           <section id="progress-section" class="sidebar-section progress-section">
             <h3 id="progress-heading" class="sidebar-section-heading">Progress</h3>
-            <ul id="progress-ring-list" class="progress-ring-list">
-              <li id="progress-item-biology" class="progress-ring-item">
-                <button
-                  id="progress-ring-button-biology"
-                  class="progress-ring-button"
-                  type="button"
-                  data-subject="Biology"
-                  aria-label="Biology progress 0 percent"
-                >
-                  <span class="progress-ring-pulse"></span>
-                  <svg id="progress-ring-biology" class="mini-progress-ring" viewBox="0 0 48 48" role="img" aria-hidden="true">
-                    <circle class="mini-progress-ring-track" cx="24" cy="24" r="18"></circle>
-                    <circle class="mini-progress-ring-fill" cx="24" cy="24" r="18"></circle>
-                  </svg>
-                  <span id="progress-label-biology" class="progress-ring-label">Biology 0%</span>
+            <div class="progress-summary-card" id="progress-summary-card">
+              <div class="progress-summary-ring-wrap">
+                <svg id="overall-progress-ring" class="overall-progress-ring" viewBox="0 0 96 96" role="img" aria-label="Overall study progress">
+                  <circle class="overall-progress-ring-track" cx="48" cy="48" r="34"></circle>
+                  <circle id="overall-progress-ring-fill" class="overall-progress-ring-fill" cx="48" cy="48" r="34"></circle>
+                </svg>
+                <div class="overall-progress-center">
+                  <span id="overall-progress-percentage" class="overall-progress-percentage">0%</span>
+                  <span id="overall-progress-meta" class="overall-progress-meta">0 / 20</span>
+                </div>
+              </div>
+              <p class="progress-summary-copy">Overall deck coverage</p>
+            </div>
+            <ul id="subject-progress-list" class="subject-progress-list">
+              <li class="subject-progress-item">
+                <button id="progress-ring-button-biology" class="subject-progress-button progress-ring-button" type="button" data-subject="Biology" aria-label="Biology progress 0 percent">
+                  <span id="progress-label-biology" class="subject-progress-label">Biology</span>
+                  <span class="subject-progress-track"><span id="subject-progress-fill-biology" class="subject-progress-fill"></span></span>
+                  <span id="subject-progress-pct-biology" class="subject-progress-value">0%</span>
                 </button>
               </li>
-              <li id="progress-item-physics" class="progress-ring-item">
-                <button id="progress-ring-button-physics" class="progress-ring-button" type="button" data-subject="Physics" aria-label="Physics progress 0 percent">
-                  <span class="progress-ring-pulse"></span>
-                  <svg id="progress-ring-physics" class="mini-progress-ring" viewBox="0 0 48 48" role="img" aria-hidden="true">
-                    <circle class="mini-progress-ring-track" cx="24" cy="24" r="18"></circle>
-                    <circle class="mini-progress-ring-fill" cx="24" cy="24" r="18"></circle>
-                  </svg>
-                  <span id="progress-label-physics" class="progress-ring-label">Physics 0%</span>
+              <li class="subject-progress-item">
+                <button id="progress-ring-button-physics" class="subject-progress-button progress-ring-button" type="button" data-subject="Physics" aria-label="Physics progress 0 percent">
+                  <span id="progress-label-physics" class="subject-progress-label">Physics</span>
+                  <span class="subject-progress-track"><span id="subject-progress-fill-physics" class="subject-progress-fill"></span></span>
+                  <span id="subject-progress-pct-physics" class="subject-progress-value">0%</span>
                 </button>
               </li>
-              <li id="progress-item-history" class="progress-ring-item">
-                <button id="progress-ring-button-history" class="progress-ring-button" type="button" data-subject="History" aria-label="History progress 0 percent">
-                  <span class="progress-ring-pulse"></span>
-                  <svg id="progress-ring-history" class="mini-progress-ring" viewBox="0 0 48 48" role="img" aria-hidden="true">
-                    <circle class="mini-progress-ring-track" cx="24" cy="24" r="18"></circle>
-                    <circle class="mini-progress-ring-fill" cx="24" cy="24" r="18"></circle>
-                  </svg>
-                  <span id="progress-label-history" class="progress-ring-label">History 0%</span>
+              <li class="subject-progress-item">
+                <button id="progress-ring-button-history" class="subject-progress-button progress-ring-button" type="button" data-subject="History" aria-label="History progress 0 percent">
+                  <span id="progress-label-history" class="subject-progress-label">History</span>
+                  <span class="subject-progress-track"><span id="subject-progress-fill-history" class="subject-progress-fill"></span></span>
+                  <span id="subject-progress-pct-history" class="subject-progress-value">0%</span>
                 </button>
               </li>
-              <li id="progress-item-math" class="progress-ring-item">
-                <button id="progress-ring-button-math" class="progress-ring-button" type="button" data-subject="Math" aria-label="Math progress 0 percent">
-                  <span class="progress-ring-pulse"></span>
-                  <svg id="progress-ring-math" class="mini-progress-ring" viewBox="0 0 48 48" role="img" aria-hidden="true">
-                    <circle class="mini-progress-ring-track" cx="24" cy="24" r="18"></circle>
-                    <circle class="mini-progress-ring-fill" cx="24" cy="24" r="18"></circle>
-                  </svg>
-                  <span id="progress-label-math" class="progress-ring-label">Math 0%</span>
+              <li class="subject-progress-item">
+                <button id="progress-ring-button-math" class="subject-progress-button progress-ring-button" type="button" data-subject="Math" aria-label="Math progress 0 percent">
+                  <span id="progress-label-math" class="subject-progress-label">Math</span>
+                  <span class="subject-progress-track"><span id="subject-progress-fill-math" class="subject-progress-fill"></span></span>
+                  <span id="subject-progress-pct-math" class="subject-progress-value">0%</span>
                 </button>
               </li>
-              <li id="progress-item-literature" class="progress-ring-item">
-                <button id="progress-ring-button-literature" class="progress-ring-button" type="button" data-subject="Literature" aria-label="Literature progress 0 percent">
-                  <span class="progress-ring-pulse"></span>
-                  <svg id="progress-ring-literature" class="mini-progress-ring" viewBox="0 0 48 48" role="img" aria-hidden="true">
-                    <circle class="mini-progress-ring-track" cx="24" cy="24" r="18"></circle>
-                    <circle class="mini-progress-ring-fill" cx="24" cy="24" r="18"></circle>
-                  </svg>
-                  <span id="progress-label-literature" class="progress-ring-label">Literature 0%</span>
+              <li class="subject-progress-item">
+                <button id="progress-ring-button-literature" class="subject-progress-button progress-ring-button" type="button" data-subject="Literature" aria-label="Literature progress 0 percent">
+                  <span id="progress-label-literature" class="subject-progress-label">Literature</span>
+                  <span class="subject-progress-track"><span id="subject-progress-fill-literature" class="subject-progress-fill"></span></span>
+                  <span id="subject-progress-pct-literature" class="subject-progress-value">0%</span>
                 </button>
               </li>
             </ul>
@@ -338,7 +319,6 @@
                 <h3 id="flashcard-question-text" class="flashcard-content-text">
                   What is the powerhouse of the cell?
                 </h3>
-                <span class="card-counter" id="card-counter">Card 1 of 20</span>
               </section>
 
               <section id="flashcard-back" class="flashcard-face flashcard-back-face" aria-label="Flashcard back">
@@ -362,6 +342,7 @@
                 Flip Card
               </button>
             </div>
+            <p id="study-card-meta" class="study-card-meta">Card 1 of 20</p>
           </article>
 
           <section id="study-notes-section" class="study-notes-section" aria-labelledby="study-notes-heading">
@@ -412,8 +393,17 @@
           </button>
         </div>
 
-        <div id="right-panel-content" class="right-panel-content">
-          <section id="cognitive-load-monitor-section" class="right-panel-section cognitive-load-monitor-section" aria-labelledby="cognitive-load-monitor-heading">
+        <div id="right-panel-content" class="right-panel-content" data-active-view="load">
+          <div class="insights-tab-switcher" id="insights-tab-switcher" role="tablist" aria-label="Insights views">
+            <button id="btn-panel-tab-load" class="insights-tab-button active" type="button" role="tab" aria-selected="true" data-panel-view="load">
+              Load
+            </button>
+            <button id="btn-panel-tab-session" class="insights-tab-button" type="button" role="tab" aria-selected="false" data-panel-view="session">
+              Session
+            </button>
+          </div>
+
+          <section id="cognitive-load-monitor-section" class="right-panel-section cognitive-load-monitor-section panel-view-load" aria-labelledby="cognitive-load-monitor-heading">
             <h3 id="cognitive-load-monitor-heading" class="right-panel-section-heading">Cognitive Load Monitor</h3>
 
             <ul id="load-metrics-list" class="load-metrics-list">
@@ -465,12 +455,12 @@
             </div>
           </section>
 
-          <section id="load-history-section" class="right-panel-section load-history-section" aria-labelledby="load-history-heading">
+          <section id="load-history-section" class="right-panel-section load-history-section panel-view-load" aria-labelledby="load-history-heading">
             <h3 id="load-history-heading" class="right-panel-section-heading">Load History</h3>
             <div id="sparkline-canvas" class="sparkline-canvas" aria-hidden="true"></div>
           </section>
 
-          <section class="right-panel-section analytics-section" id="analytics-section">
+          <section class="right-panel-section analytics-section panel-view-session" id="analytics-section">
             <h3 class="right-panel-section-heading">Session Stats</h3>
             <div class="stat-grid">
               <div class="stat-tile">
@@ -495,7 +485,7 @@
             </button>
           </section>
 
-          <section class="right-panel-section chat-section" id="chat-section" aria-labelledby="chat-section-heading">
+          <section class="right-panel-section chat-section panel-view-session" id="chat-section" aria-labelledby="chat-section-heading">
             <div class="chat-section-header">
               <h3 id="chat-section-heading" class="right-panel-section-heading">Study Assistant</h3>
               <span class="chat-guard-badge" id="chat-guard-badge">Rate Limited</span>

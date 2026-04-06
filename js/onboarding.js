@@ -227,5 +227,5 @@
     }
   }
 
-  window.OnboardingTour = new OnboardingTour();
+  window.OnboardingTour = OnboardingTour;
 })();

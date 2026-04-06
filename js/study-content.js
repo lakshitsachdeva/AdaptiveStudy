@@ -25,9 +25,10 @@
   ];
 
   const SUBJECTS = ["Biology", "Physics", "History", "Math", "Literature"];
-  const RING_CIRCUMFERENCE = 2 * Math.PI * 18;
+  const OVERALL_RING_CIRCUMFERENCE = 2 * Math.PI * 34;
   const TRANSITION_MS = 200;
   const STORAGE_KEY = "adaptivestudy-study-state";
+  const STORAGE_DEBOUNCE_MS = 1000;
 
   class StudyContent {
     constructor() {
@@ -53,10 +54,14 @@
       this.answerText = document.getElementById("flashcard-answer-text");
       this.subjectBadge = document.getElementById("card-subject");
       this.difficultyBadge = document.getElementById("card-difficulty");
-      this.counterLabel = document.getElementById("card-counter");
+      this.counterLabel = document.getElementById("study-card-meta");
       this.confidenceRow = document.getElementById("confidence-row");
       this.topicButtons = Array.from(document.querySelectorAll(".topic-pill-button"));
+      this.overallProgressFill = document.getElementById("overall-progress-ring-fill");
+      this.overallProgressPercentage = document.getElementById("overall-progress-percentage");
+      this.overallProgressMeta = document.getElementById("overall-progress-meta");
       this.progressElements = this.buildProgressMap();
+      this.pendingSaveStateTimer = null;
 
       for (const card of FLASHCARD_DECK) {
         this.reviewMeta[card.id] = {
@@ -77,6 +82,7 @@
       this.loadPersistedState();
       this.renderCard();
       this.updateProgress();
+      window.addEventListener("beforeunload", () => this.flushState());
     }
 
     getCurrentCard() {
@@ -316,6 +322,23 @@
 
     updateProgress() {
       const progress = this.getSubjectProgress();
+      const completedOverall = FLASHCARD_DECK.filter((card) => this.isCardCompleted(card.id)).length;
+      const overallRatio = FLASHCARD_DECK.length ? completedOverall / FLASHCARD_DECK.length : 0;
+      const overallPercentage = Math.round(overallRatio * 100);
+
+      if (this.overallProgressFill) {
+        this.overallProgressFill.style.strokeDasharray = String(OVERALL_RING_CIRCUMFERENCE);
+        this.overallProgressFill.style.strokeDashoffset = String(OVERALL_RING_CIRCUMFERENCE * (1 - overallRatio));
+        this.overallProgressFill.style.stroke = this.getProgressColor(overallPercentage);
+      }
+
+      if (this.overallProgressPercentage) {
+        this.overallProgressPercentage.textContent = overallPercentage + "%";
+      }
+
+      if (this.overallProgressMeta) {
+        this.overallProgressMeta.textContent = completedOverall + " / " + FLASHCARD_DECK.length;
+      }
 
       for (const subject of SUBJECTS) {
         const ratio = progress[subject] || 0;
@@ -324,22 +347,23 @@
         const subjectCards = FLASHCARD_DECK.filter((card) => card.subject === subject);
         const completedCount = subjectCards.filter((card) => this.isCardCompleted(card.id)).length;
 
-        if (!entry || !entry.fill) {
+        if (!entry || !entry.trackFill) {
           continue;
         }
 
-        entry.fill.style.strokeDasharray = String(RING_CIRCUMFERENCE);
-        entry.fill.style.strokeDashoffset = String(RING_CIRCUMFERENCE * (1 - ratio));
-        entry.fill.style.stroke = this.getProgressColor(percentage);
+        entry.trackFill.style.width = percentage + "%";
+        entry.trackFill.style.background = this.getProgressColor(percentage);
 
         if (entry.label) {
           entry.label.textContent = subject;
         }
 
+        if (entry.value) {
+          entry.value.textContent = percentage + "%";
+        }
+
         if (entry.button) {
           entry.button.setAttribute("aria-label", subject + " progress " + percentage + " percent");
-          entry.button.dataset.progress = percentage + "%";
-          entry.button.dataset.detail = completedCount + "/" + subjectCards.length + " cards";
           entry.button.classList.toggle("complete", percentage === 100);
         }
       }
@@ -378,13 +402,11 @@
     }
 
     buildProgressEntry(slug) {
-      const ring = document.getElementById("progress-ring-" + slug);
-
       return {
-        ring,
-        fill: ring ? ring.querySelector(".mini-progress-ring-fill") : null,
         label: document.getElementById("progress-label-" + slug),
-        button: document.getElementById("progress-ring-button-" + slug)
+        button: document.getElementById("progress-ring-button-" + slug),
+        trackFill: document.getElementById("subject-progress-fill-" + slug),
+        value: document.getElementById("subject-progress-pct-" + slug)
       };
     }
 
@@ -580,6 +602,18 @@
     }
 
     saveState() {
+      if (this.pendingSaveStateTimer !== null) {
+        window.clearTimeout(this.pendingSaveStateTimer);
+      }
+
+      this.pendingSaveStateTimer = window.setTimeout(() => {
+        this.persistStateNow();
+      }, STORAGE_DEBOUNCE_MS);
+    }
+
+    persistStateNow() {
+      this.pendingSaveStateTimer = null;
+
       try {
         window.localStorage.setItem(
           STORAGE_KEY,
@@ -594,6 +628,15 @@
       } catch (error) {
         console.warn("[AdaptiveStudy] Unable to persist study state:", error);
       }
+    }
+
+    flushState() {
+      if (this.pendingSaveStateTimer !== null) {
+        window.clearTimeout(this.pendingSaveStateTimer);
+        this.pendingSaveStateTimer = null;
+      }
+
+      this.persistStateNow();
     }
 
     loadPersistedState() {
@@ -657,6 +700,11 @@
         window.localStorage.removeItem(STORAGE_KEY);
       } catch (error) {
         console.warn("[AdaptiveStudy] Unable to clear study state:", error);
+      }
+
+      if (this.pendingSaveStateTimer !== null) {
+        window.clearTimeout(this.pendingSaveStateTimer);
+        this.pendingSaveStateTimer = null;
       }
 
       this.applyFilters();

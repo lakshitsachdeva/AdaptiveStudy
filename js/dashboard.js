@@ -7,7 +7,7 @@
       typeof window.UIAdapter !== "function" ||
       !window.StudyContent ||
       !window.SessionAnalytics ||
-      !window.OnboardingTour
+      typeof window.OnboardingTour !== "function"
     ) {
       return;
     }
@@ -16,21 +16,25 @@
     const ui = new window.UIAdapter();
     const content = window.StudyContent;
     const analytics = window.SessionAnalytics;
-    const tour = window.OnboardingTour;
     const scoreHistory = [];
 
     const body = document.body;
     const layoutBackdrop = document.getElementById("layout-backdrop");
     const timerDisplay = document.getElementById("session-timer");
     const notesField = document.getElementById("study-notes");
+    const chatSection = document.getElementById("chat-section");
     const demoToggleButton = document.getElementById("btn-demo");
     const demoBadge = document.getElementById("demo-badge");
+    const navbarMenuButton = document.getElementById("btn-navbar-menu");
+    const navbarOverflowMenu = document.getElementById("navbar-overflow-menu");
     const navbarSidebarButton = document.getElementById("btn-navbar-sidebar");
     const navbarPanelButton = document.getElementById("btn-navbar-panel");
     const shortcutModal = document.getElementById("shortcut-modal");
     const researchOverlay = document.getElementById("research-overlay");
     const quickSheet = document.getElementById("quick-actions-sheet");
     const quickSheetFab = document.getElementById("fab-quick-actions");
+    const panelTabButtons = Array.from(document.querySelectorAll(".insights-tab-button"));
+    const rightPanelContent = document.getElementById("right-panel-content");
     const welcomeModal = document.getElementById("welcome-modal");
     const nameInput = document.getElementById("user-name-input");
     const startSessionButton = document.getElementById("btn-start-session");
@@ -53,10 +57,18 @@
     let lastDemoPhase = null;
     let userName = loadUserName();
     let sessionEnded = false;
+    let isResetting = false;
     let calibrationUiResolved = false;
-    let lastSidebarUiUpdateAt = 0;
-    const sidebarUiIntervalMs = 1500;
-    const localEnvironment = isLocalEnvironment();
+    let tour = null;
+    let chat = null;
+    const isLocal = isLocalEnvironment();
+    const saveNotesDebounced = debounce((value) => {
+      try {
+        window.localStorage.setItem("adaptivestudy-notes", value);
+      } catch (error) {
+        console.warn("[AdaptiveStudy] Unable to save notes:", error);
+      }
+    }, 1000);
 
     engine.onCalibrationComplete((data) => {
       if (calibrationUiResolved) {
@@ -70,7 +82,6 @@
       analytics.logEvent("calibration_complete", data);
     });
 
-    content.renderCard();
     restoreNotes();
     updateSessionTimer();
     startSessionTimer();
@@ -79,41 +90,46 @@
     wireNotes();
     wireKeyboardShortcuts();
     wireCustomEvents();
+    wirePanelTabs();
     updateTopicPillCounts();
     syncPanelButtonStates();
-    if (!localEnvironment) {
-      observeLayoutState();
-    }
-    enableLocalSafeMode();
-    if (localEnvironment) {
-      initializeLocalSafeDashboard();
-    } else {
-      startRealPolling();
-    }
+    observeLayoutState();
     initializeWelcome();
     ui.updateMasteryBars(content.getSubjectMastery());
     analytics.logEvent("card_seen", { subject: content.getCurrentCard()?.subject || null });
+    setPanelView("load");
 
     document.getElementById("btn-tour")?.addEventListener("click", () => {
-      tour.start();
+      ensureTour()?.start();
+      closeNavbarMenu();
     });
 
-    if (!localEnvironment && tour.shouldShow() && userName) {
-      window.setTimeout(() => tour.start(), 1800);
+    if (chatSection && isLocal) {
+      chatSection.hidden = true;
     }
 
     window.addEventListener("resize", syncPanelButtonStates);
-    if (!localEnvironment) {
-      window.addEventListener("scroll", () => {
-        document.getElementById("navbar")?.classList.toggle("scrolled", window.scrollY > 10);
-      }, { passive: true });
-    }
+    window.addEventListener("scroll", () => {
+      document.getElementById("navbar")?.classList.toggle("scrolled", window.scrollY > 10);
+    }, { passive: true });
+    window.addEventListener("beforeunload", () => {
+      if (!notesField || isResetting) {
+        return;
+      }
+
+      try {
+        window.localStorage.setItem("adaptivestudy-notes", notesField.value);
+      } catch (error) {
+        console.warn("[AdaptiveStudy] Unable to flush notes:", error);
+      }
+    });
 
     document.getElementById("btn-export-report")?.addEventListener("click", () => {
       exportSessionReport();
     });
 
     document.getElementById("btn-shortcuts")?.addEventListener("click", () => {
+      closeNavbarMenu();
       if (shortcutModal) {
         shortcutModal.hidden = false;
       }
@@ -140,8 +156,31 @@
       ui,
       content,
       analytics,
-      tour
+      get tour() {
+        return tour;
+      },
+      get chat() {
+        return chat;
+      }
     };
+
+    runWhenIdle(() => {
+      if (!demoModeActive && !sessionEnded) {
+        startRealPolling();
+      }
+    }, 1200);
+
+    window.setTimeout(() => {
+      if (userName && ensureTour()?.shouldShow()) {
+        ensureTour().start();
+      }
+    }, 3000);
+
+    if (!isLocal && typeof window.AdaptiveStudyChatbot === "function") {
+      window.setTimeout(() => {
+        chat = new window.AdaptiveStudyChatbot();
+      }, 5000);
+    }
 
     function observeLayoutState() {
       const observer = new MutationObserver(() => {
@@ -157,38 +196,6 @@
     function isLocalEnvironment() {
       const hostname = window.location.hostname;
       return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "";
-    }
-
-    function enableLocalSafeMode() {
-      if (!localEnvironment) {
-        return;
-      }
-
-      document.body.classList.add("performance-mode");
-      document.body.classList.add("local-safe-mode");
-      calibrationUiResolved = true;
-      analytics.calibrated = true;
-      if (typeof engine.completeCalibration === "function" && !engine.calibrationComplete) {
-        engine.completeCalibration();
-      }
-      ui.showCalibrationState(100, true);
-      document.getElementById("chat-section")?.setAttribute("hidden", "hidden");
-      document.getElementById("btn-tour")?.setAttribute("hidden", "hidden");
-    }
-
-    function initializeLocalSafeDashboard() {
-      const safeMetrics = {
-        cursorEntropy: 14,
-        hesitationIndex: 18,
-        errorRate: 5,
-        scrollRhythm: 12,
-        composite: 16,
-        state: "low",
-        confidence: 0
-      };
-
-      applyMetrics(safeMetrics);
-      ui.showToast("Local safe mode active. Use Demo Mode for the full adaptation sequence.", "info", 4200);
     }
 
     function startSessionTimer() {
@@ -222,24 +229,11 @@
     function startRealPolling() {
       engine.startPolling((metrics) => {
         if (metrics.calibrating && !calibrationUiResolved) {
-          const progress = Number(metrics.progress || 0);
-
-          if (progress >= 95) {
-            calibrationUiResolved = true;
-            ui.showCalibrationState(100, true);
-            analytics.calibrated = true;
-            analytics.logEvent("calibration_complete", {
-              baselines: null,
-              confidence: metrics.confidence ?? null,
-              resolvedBy: "ui-threshold"
-            });
-          } else {
-            ui.showCalibrationState(progress, false);
-          }
+          ui.showCalibrationState(Number(metrics.progress || 0), false);
         }
 
         applyMetrics(metrics);
-      }, 500);
+      }, 2000);
     }
 
     function applyMetrics(metrics) {
@@ -247,17 +241,18 @@
         return;
       }
 
-      if (!calibrationUiResolved && !metrics.calibrating) {
+      if (!calibrationUiResolved && !metrics.calibrating && engine.calibrationComplete) {
         calibrationUiResolved = true;
         ui.showCalibrationState(100, true);
         analytics.calibrated = true;
         analytics.logEvent("calibration_complete", {
           baselines: null,
           confidence: metrics.confidence ?? null,
-          resolvedBy: "metrics-fallback"
+          resolvedBy: "engine-complete"
         });
       }
 
+      body.dataset.loadState = metrics.state || "medium";
       ui.updateMetricBars(metrics);
       ui.updateLoadGauge(metrics.composite);
       ui.updateLoadGaugeColor(metrics.composite);
@@ -275,13 +270,7 @@
       const stats = analytics.getStats();
       ui.updateSessionStats(stats);
       ui.updateResearchOverlay(Object.assign({}, stats, content.getSessionSummary()));
-      ui.updateConfidence(engine.getConfidence());
-
-      const now = Date.now();
-      if (now - lastSidebarUiUpdateAt >= sidebarUiIntervalMs) {
-        lastSidebarUiUpdateAt = now;
-        ui.updateMasteryBars(content.getSubjectMastery());
-      }
+      ui.updateConfidence(metrics.confidence ?? engine.getConfidence());
     }
 
     function wireButtons() {
@@ -310,9 +299,16 @@
       });
       startSessionButton?.addEventListener("click", saveUserNameFromInput);
       skipNameButton?.addEventListener("click", skipNameForNow);
-      resetSessionButton?.addEventListener("click", resetEverything);
+      resetSessionButton?.addEventListener("click", () => {
+        closeNavbarMenu();
+        resetEverything();
+      });
 
-      demoToggleButton?.addEventListener("click", toggleDemoMode);
+      demoToggleButton?.addEventListener("click", () => {
+        closeNavbarMenu();
+        toggleDemoMode();
+      });
+      navbarMenuButton?.addEventListener("click", toggleNavbarMenu);
 
       quickSheetFab?.addEventListener("click", () => {
         if (!quickSheet) {
@@ -328,6 +324,21 @@
       layoutBackdrop?.addEventListener("click", () => {
         closeCompactPanels();
         syncPanelButtonStates();
+      });
+
+      document.addEventListener("click", (event) => {
+        if (!navbarOverflowMenu || !navbarMenuButton) {
+          return;
+        }
+
+        const target = event.target;
+        if (!(target instanceof Node)) {
+          return;
+        }
+
+        if (!navbarOverflowMenu.contains(target) && !navbarMenuButton.contains(target)) {
+          closeNavbarMenu();
+        }
       });
     }
 
@@ -361,11 +372,7 @@
       }
 
       notesField.addEventListener("input", () => {
-        try {
-          window.localStorage.setItem("adaptivestudy-notes", notesField.value);
-        } catch (error) {
-          console.warn("[AdaptiveStudy] Unable to save notes:", error);
-        }
+        saveNotesDebounced(notesField.value);
       });
     }
 
@@ -461,6 +468,14 @@
           content.recordConfidence(card.id, rating);
           analytics.logEvent("confidence_rated", { cardId: card.id, rating });
           content.nextCard();
+        });
+      });
+    }
+
+    function wirePanelTabs() {
+      panelTabButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          setPanelView(button.dataset.panelView || "load");
         });
       });
     }
@@ -579,11 +594,7 @@
       clearDemoTimer();
       setDemoUiState(false);
       engine.setDemoMode(false);
-      if (localEnvironment) {
-        initializeLocalSafeDashboard();
-      } else {
-        startRealPolling();
-      }
+      startRealPolling();
     }
 
     function clearDemoTimer() {
@@ -777,6 +788,39 @@
       }
     }
 
+    function setPanelView(view) {
+      const safeView = view === "session" ? "session" : "load";
+
+      if (rightPanelContent) {
+        rightPanelContent.dataset.activeView = safeView;
+      }
+
+      panelTabButtons.forEach((button) => {
+        const active = button.dataset.panelView === safeView;
+        button.classList.toggle("active", active);
+        button.setAttribute("aria-selected", String(active));
+      });
+    }
+
+    function toggleNavbarMenu() {
+      if (!navbarOverflowMenu || !navbarMenuButton) {
+        return;
+      }
+
+      const nextHidden = !navbarOverflowMenu.hidden;
+      navbarOverflowMenu.hidden = nextHidden;
+      navbarMenuButton.setAttribute("aria-expanded", String(!nextHidden));
+    }
+
+    function closeNavbarMenu() {
+      if (!navbarOverflowMenu || !navbarMenuButton) {
+        return;
+      }
+
+      navbarOverflowMenu.hidden = true;
+      navbarMenuButton.setAttribute("aria-expanded", "false");
+    }
+
     function closeOverlays() {
       document.querySelectorAll(".modal-overlay, .research-overlay, .onboarding-overlay").forEach((element) => {
         element.hidden = true;
@@ -789,6 +833,7 @@
         quickSheetFab.textContent = "☰";
       }
 
+      closeNavbarMenu();
       closeCompactPanels();
       syncPanelButtonStates();
     }
@@ -813,6 +858,38 @@
 
     function clamp(value, min = 0, max = 100) {
       return Math.min(max, Math.max(min, value));
+    }
+
+    function runWhenIdle(callback, timeout = 1000) {
+      if (typeof window.requestIdleCallback === "function") {
+        window.requestIdleCallback(() => callback(), { timeout });
+        return;
+      }
+
+      window.setTimeout(callback, 0);
+    }
+
+    function debounce(callback, delay) {
+      let timerId = null;
+
+      return (...args) => {
+        if (timerId !== null) {
+          window.clearTimeout(timerId);
+        }
+
+        timerId = window.setTimeout(() => {
+          timerId = null;
+          callback(...args);
+        }, delay);
+      };
+    }
+
+    function ensureTour() {
+      if (!tour && typeof window.OnboardingTour === "function") {
+        tour = new window.OnboardingTour();
+      }
+
+      return tour;
     }
 
     function initializeWelcome() {
@@ -857,8 +934,8 @@
 
       ui.showToast("Welcome, " + userName + ". Let's study well.", "success");
 
-      if (!localEnvironment && tour.shouldShow()) {
-        window.setTimeout(() => tour.start(), 700);
+      if (ensureTour()?.shouldShow()) {
+        window.setTimeout(() => ensureTour()?.start(), 700);
       }
     }
 
@@ -875,8 +952,8 @@
         welcomeModal.hidden = true;
       }
 
-      if (!localEnvironment && tour.shouldShow()) {
-        window.setTimeout(() => tour.start(), 700);
+      if (ensureTour()?.shouldShow()) {
+        window.setTimeout(() => ensureTour()?.start(), 700);
       }
     }
 
@@ -968,6 +1045,10 @@
         console.warn("[AdaptiveStudy] Unable to clear local storage:", error);
       }
 
+      isResetting = true;
+      if (notesField) {
+        notesField.value = "";
+      }
       content.clearPersistedState?.();
       window.location.reload();
     }

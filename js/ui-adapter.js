@@ -109,7 +109,7 @@
         return;
       }
 
-      if (this.lowPowerDevice || this.body.classList.contains("local-safe-mode")) {
+      if (this.lowPowerDevice) {
         element.textContent = formatter
           ? formatter(toValue)
           : Number.isInteger(toValue)
@@ -236,7 +236,6 @@
         if (bar) {
           bar.style.width = safeValue + "%";
           bar.style.color = color;
-          bar.classList.toggle("is-pulsing", safeValue > 70);
           bar.classList.remove("skeleton");
         }
 
@@ -376,7 +375,7 @@
     }
 
     showModeWave(color) {
-      if (this.lowPowerDevice || this.body.classList.contains("local-safe-mode")) {
+      if (this.lowPowerDevice) {
         return;
       }
 
