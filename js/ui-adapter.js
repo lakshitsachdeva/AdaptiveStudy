@@ -12,6 +12,16 @@
       this.sparklineHistoryLimit = 30;
       this.numberAnimationState = new WeakMap();
       this.isTouchDevice = window.matchMedia("(hover: none)").matches;
+      this.prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      this.connection = typeof navigator !== "undefined" ? navigator.connection || navigator.mozConnection || navigator.webkitConnection : null;
+      this.enableEnhancedEffects = false;
+      this.lowPowerDevice = Boolean(
+        !this.enableEnhancedEffects ||
+        this.prefersReducedMotion ||
+        this.isTouchDevice ||
+        (typeof navigator !== "undefined" && navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 6) ||
+        this.connection?.saveData
+      );
 
       this.mentalLoadWidget = document.getElementById("mental-load-widget");
       this.gaugeFill = document.getElementById("mental-load-gauge-fill");
@@ -66,10 +76,31 @@
       this.cursorTarget = { x: -999, y: -999 };
       this.cursorPosition = { x: -999, y: -999 };
 
+      if (this.lowPowerDevice) {
+        this.body.classList.add("performance-mode");
+      }
+
       this.initializeGauge();
       this.initializeSparkline();
-      this.initializeCursor();
-      this.initializeCardTilt();
+      this.scheduleNonEssentialEffects();
+    }
+
+    scheduleNonEssentialEffects() {
+      if (this.lowPowerDevice) {
+        return;
+      }
+
+      const startEffects = () => {
+        this.initializeCursor();
+        this.initializeCardTilt();
+      };
+
+      if (typeof window.requestIdleCallback === "function") {
+        window.requestIdleCallback(startEffects, { timeout: 1200 });
+        return;
+      }
+
+      window.setTimeout(startEffects, 800);
     }
 
     animateNumber(element, fromValue, toValue, duration = 600, formatter) {
@@ -105,7 +136,7 @@
     }
 
     initializeCursor() {
-      if (this.isTouchDevice || !this.cursorDot || !this.cursorRing) {
+      if (this.lowPowerDevice || !this.cursorDot || !this.cursorRing) {
         this.cursorDot?.setAttribute("hidden", "hidden");
         this.cursorRing?.setAttribute("hidden", "hidden");
         return;
@@ -146,6 +177,10 @@
     }
 
     initializeCardTilt() {
+      if (this.lowPowerDevice) {
+        return;
+      }
+
       document.querySelectorAll(".card, .content-card").forEach((card) => {
         card.addEventListener("mousemove", (event) => {
           const rect = card.getBoundingClientRect();
