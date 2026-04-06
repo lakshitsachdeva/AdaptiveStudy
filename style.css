@@ -1173,6 +1173,123 @@ body.calm-mode .main-card {
   border-radius: 8px;
 }
 
+.chat-section {
+  min-height: 320px;
+}
+
+.chat-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.chat-guard-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--lt-amber);
+  color: var(--dk-amber);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.chat-messages {
+  display: grid;
+  gap: 10px;
+  max-height: 260px;
+  margin-bottom: 12px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.chat-message {
+  padding: 12px 12px 10px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.chat-message p {
+  margin-top: 6px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text-secondary);
+}
+
+.chat-message-role {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.chat-message-user {
+  background: var(--lt-blue);
+  border-color: rgba(106, 155, 181, 0.22);
+}
+
+.chat-message-user p {
+  color: var(--dk-blue);
+}
+
+.chat-message-assistant {
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.chat-message-warning {
+  background: var(--lt-amber);
+  border-color: rgba(224, 154, 79, 0.26);
+}
+
+.chat-message-warning p {
+  color: var(--dk-amber);
+}
+
+.chat-form {
+  display: grid;
+  gap: 10px;
+}
+
+.chat-input {
+  width: 100%;
+  min-height: 90px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: rgba(242, 239, 231, 0.9);
+  resize: vertical;
+  line-height: 1.7;
+  color: var(--text-primary);
+}
+
+.chat-form-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.chat-status {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.chat-send-button {
+  min-width: 96px;
+}
+
+.chat-send-button[disabled] {
+  opacity: 0.6;
+  cursor: wait;
+}
+
 .status-bar {
   position: fixed;
   right: 0;

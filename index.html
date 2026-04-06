@@ -414,6 +414,35 @@
               ↓ Export Session Report
             </button>
           </section>
+
+          <section class="right-panel-section chat-section" id="chat-section" aria-labelledby="chat-section-heading">
+            <div class="chat-section-header">
+              <h3 id="chat-section-heading" class="right-panel-section-heading">Study Assistant</h3>
+              <span class="chat-guard-badge" id="chat-guard-badge">Rate Limited</span>
+            </div>
+            <div id="chat-messages" class="chat-messages" aria-live="polite">
+              <div class="chat-message chat-message-assistant">
+                <span class="chat-message-role">Assistant</span>
+                <p>Ask for summaries, revision help, mnemonics, or quick explanations.</p>
+              </div>
+            </div>
+            <form id="chat-form" class="chat-form">
+              <label class="sr-only" for="chat-input">Ask the study assistant</label>
+              <textarea
+                id="chat-input"
+                class="chat-input"
+                rows="3"
+                maxlength="600"
+                placeholder="Ask about your current flashcard, topic, or notes..."
+              ></textarea>
+              <div class="chat-form-footer">
+                <span id="chat-status" class="chat-status">Short replies only. Cooldown enabled.</span>
+                <button id="btn-send-chat" class="chat-send-button btn" type="submit" aria-label="Send chat message">
+                  Send
+                </button>
+              </div>
+            </form>
+          </section>
         </div>
       </aside>
     </div>
@@ -565,6 +594,7 @@
     <script src="js/ui-adapter.js" defer></script>
     <script src="js/analytics.js" defer></script>
     <script src="js/onboarding.js" defer></script>
+    <script src="js/chatbot.js" defer></script>
     <script src="js/dashboard.js" defer></script>
   </body>
 </html>
