@@ -61,6 +61,7 @@
       this.baselineHesitation = 0;
       this.baselineScroll = 0;
       this.calibrationCallbacks = [];
+      this.calibrationTimeoutId = null;
 
       this.pollingIntervalId = null;
       this.metricIntervalId = null;
@@ -314,6 +315,7 @@
         return;
       }
 
+      this.clearCalibrationTimeout();
       this.isCalibrating = false;
       this.calibrationComplete = true;
       this.calibrationProgress = 100;
@@ -647,6 +649,7 @@
         this.isCalibrating = true;
         this.calibrationStartedAt = this.now();
         this.calibrationSamples = [];
+        this.scheduleCalibrationTimeout();
       }
 
       callback(this.getMetrics());
@@ -662,6 +665,28 @@
       }
 
       this.pollingIntervalId = null;
+    }
+
+    scheduleCalibrationTimeout() {
+      if (typeof window === "undefined") {
+        return;
+      }
+
+      this.clearCalibrationTimeout();
+      this.calibrationTimeoutId = window.setTimeout(() => {
+        if (!this.calibrationComplete) {
+          this.calibrationProgress = 100;
+          this.completeCalibration();
+        }
+      }, this.calibrationDurationMs + 500);
+    }
+
+    clearCalibrationTimeout() {
+      if (this.calibrationTimeoutId !== null && typeof window !== "undefined") {
+        window.clearTimeout(this.calibrationTimeoutId);
+      }
+
+      this.calibrationTimeoutId = null;
     }
 
     getTextSession(target) {
