@@ -81,9 +81,15 @@
     wireCustomEvents();
     updateTopicPillCounts();
     syncPanelButtonStates();
-    observeLayoutState();
+    if (!localEnvironment) {
+      observeLayoutState();
+    }
     enableLocalSafeMode();
-    startRealPolling();
+    if (localEnvironment) {
+      initializeLocalSafeDashboard();
+    } else {
+      startRealPolling();
+    }
     initializeWelcome();
     ui.updateMasteryBars(content.getSubjectMastery());
     analytics.logEvent("card_seen", { subject: content.getCurrentCard()?.subject || null });
@@ -97,9 +103,11 @@
     }
 
     window.addEventListener("resize", syncPanelButtonStates);
-    window.addEventListener("scroll", () => {
-      document.getElementById("navbar")?.classList.toggle("scrolled", window.scrollY > 10);
-    }, { passive: true });
+    if (!localEnvironment) {
+      window.addEventListener("scroll", () => {
+        document.getElementById("navbar")?.classList.toggle("scrolled", window.scrollY > 10);
+      }, { passive: true });
+    }
 
     document.getElementById("btn-export-report")?.addEventListener("click", () => {
       exportSessionReport();
@@ -157,12 +165,30 @@
       }
 
       document.body.classList.add("performance-mode");
+      document.body.classList.add("local-safe-mode");
       calibrationUiResolved = true;
       analytics.calibrated = true;
       if (typeof engine.completeCalibration === "function" && !engine.calibrationComplete) {
         engine.completeCalibration();
       }
       ui.showCalibrationState(100, true);
+      document.getElementById("chat-section")?.setAttribute("hidden", "hidden");
+      document.getElementById("btn-tour")?.setAttribute("hidden", "hidden");
+    }
+
+    function initializeLocalSafeDashboard() {
+      const safeMetrics = {
+        cursorEntropy: 14,
+        hesitationIndex: 18,
+        errorRate: 5,
+        scrollRhythm: 12,
+        composite: 16,
+        state: "low",
+        confidence: 0
+      };
+
+      applyMetrics(safeMetrics);
+      ui.showToast("Local safe mode active. Use Demo Mode for the full adaptation sequence.", "info", 4200);
     }
 
     function startSessionTimer() {
@@ -553,7 +579,11 @@
       clearDemoTimer();
       setDemoUiState(false);
       engine.setDemoMode(false);
-      startRealPolling();
+      if (localEnvironment) {
+        initializeLocalSafeDashboard();
+      } else {
+        startRealPolling();
+      }
     }
 
     function clearDemoTimer() {

@@ -109,6 +109,15 @@
         return;
       }
 
+      if (this.lowPowerDevice || this.body.classList.contains("local-safe-mode")) {
+        element.textContent = formatter
+          ? formatter(toValue)
+          : Number.isInteger(toValue)
+            ? String(Math.round(toValue))
+            : Number(toValue || 0).toFixed(1);
+        return;
+      }
+
       const start = performance.now();
       const startValue = Number.isFinite(fromValue) ? fromValue : 0;
       const endValue = Number.isFinite(toValue) ? toValue : 0;
@@ -367,6 +376,10 @@
     }
 
     showModeWave(color) {
+      if (this.lowPowerDevice || this.body.classList.contains("local-safe-mode")) {
+        return;
+      }
+
       const wave = document.createElement("div");
       wave.className = "mode-wave";
       Object.assign(wave.style, {

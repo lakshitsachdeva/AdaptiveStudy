@@ -4,25 +4,40 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AdaptiveStudy</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      rel="preload"
-      as="style"
-      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Playfair+Display:wght@600;700&display=swap"
-    />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Playfair+Display:wght@600;700&display=swap"
-      media="print"
-      onload="this.media='all'"
-    />
-    <noscript>
-      <link
-        rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Playfair+Display:wght@600;700&display=swap"
-      />
-    </noscript>
+    <script>
+      (function () {
+        const hostname = window.location.hostname;
+        const localEnvironment = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "";
+
+        if (localEnvironment) {
+          document.documentElement.classList.add("local-font-fallback");
+          return;
+        }
+
+        const googleFontsHref = "https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Playfair+Display:wght@600;700&display=swap";
+        const preconnectOne = document.createElement("link");
+        const preconnectTwo = document.createElement("link");
+        const preload = document.createElement("link");
+        const stylesheet = document.createElement("link");
+
+        preconnectOne.rel = "preconnect";
+        preconnectOne.href = "https://fonts.googleapis.com";
+        preconnectTwo.rel = "preconnect";
+        preconnectTwo.href = "https://fonts.gstatic.com";
+        preconnectTwo.crossOrigin = "anonymous";
+        preload.rel = "preload";
+        preload.as = "style";
+        preload.href = googleFontsHref;
+        stylesheet.rel = "stylesheet";
+        stylesheet.href = googleFontsHref;
+        stylesheet.media = "print";
+        stylesheet.onload = function () {
+          this.media = "all";
+        };
+
+        document.head.append(preconnectOne, preconnectTwo, preload, stylesheet);
+      })();
+    </script>
     <link rel="stylesheet" href="style.css" />
   </head>
   <body id="adaptive-study-app" class="adaptive-study-shell app-shell load-medium">

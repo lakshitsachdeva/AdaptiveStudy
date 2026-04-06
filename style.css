@@ -56,6 +56,26 @@ body {
   transition: background-color 0.4s ease, color 0.3s ease;
 }
 
+html.local-font-fallback body,
+html.local-font-fallback button,
+html.local-font-fallback textarea,
+html.local-font-fallback input,
+html.local-font-fallback select {
+  font-family: "Aptos", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+}
+
+html.local-font-fallback h1,
+html.local-font-fallback h2,
+html.local-font-fallback h3,
+html.local-font-fallback .app-logo-text,
+html.local-font-fallback .session-timer-display,
+html.local-font-fallback .stat-value,
+html.local-font-fallback .session-summary-title,
+html.local-font-fallback .session-summary-value,
+html.local-font-fallback .mental-load-score {
+  font-family: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+}
+
 body.calm-mode {
   --bg-primary: #f5f0e8;
   --card-padding: 40px;
@@ -79,6 +99,53 @@ body.performance-mode .right-panel-header,
 body.performance-mode .modal-overlay,
 body.performance-mode .layout-backdrop {
   backdrop-filter: none !important;
+}
+
+body.local-safe-mode *,
+body.local-safe-mode *::before,
+body.local-safe-mode *::after {
+  transition-duration: 0.01ms !important;
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+}
+
+body.local-safe-mode .top-navbar,
+body.local-safe-mode .left-sidebar,
+body.local-safe-mode .right-panel,
+body.local-safe-mode .sidebar-section,
+body.local-safe-mode .right-panel-section,
+body.local-safe-mode .content-card,
+body.local-safe-mode .status-bar,
+body.local-safe-mode .welcome-card,
+body.local-safe-mode .session-summary-card {
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+}
+
+body.local-safe-mode .bg-mesh,
+body.local-safe-mode #state-wash,
+body.local-safe-mode .sidebar-section::before,
+body.local-safe-mode .right-panel-section::before,
+body.local-safe-mode .content-card::before,
+body.local-safe-mode .progress-ring-pulse,
+body.local-safe-mode .status-dot,
+body.local-safe-mode .demo-mode-badge.is-blinking,
+body.local-safe-mode .session-finale-burst,
+body.local-safe-mode .session-finale-burst-alt {
+  display: none !important;
+}
+
+body.local-safe-mode .main-content::before {
+  display: none;
+}
+
+body.local-safe-mode .mini-progress-ring,
+body.local-safe-mode .toast,
+body.local-safe-mode .mental-load-widget,
+body.local-safe-mode .main-card {
+  filter: none !important;
+  box-shadow: var(--shadow-soft) !important;
 }
 
 body.overload-mode #state-wash {

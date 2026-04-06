@@ -3,6 +3,11 @@
 
   class CognitiveEngine {
     constructor() {
+      this.localSafeMode =
+        typeof window !== "undefined" &&
+        (window.location.hostname === "localhost" ||
+          window.location.hostname === "127.0.0.1" ||
+          window.location.hostname === "");
       this.metricTickMs = 500;
       this.cursorSampleIntervalMs = 50;
       this.compositeAlpha = 0.3;
@@ -76,7 +81,7 @@
     }
 
     startSensorListeners() {
-      if (typeof document === "undefined") {
+      if (typeof document === "undefined" || this.localSafeMode) {
         return;
       }
 
