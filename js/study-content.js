@@ -27,6 +27,7 @@
   const SUBJECTS = ["Biology", "Physics", "History", "Math", "Literature"];
   const RING_CIRCUMFERENCE = 2 * Math.PI * 18;
   const TRANSITION_MS = 200;
+  const STORAGE_KEY = "adaptivestudy-study-state";
 
   class StudyContent {
     constructor() {
@@ -73,6 +74,7 @@
         };
       }
 
+      this.loadPersistedState();
       this.renderCard();
       this.updateProgress();
     }
@@ -172,6 +174,7 @@
       this.reviewIds.delete(card.id);
       this.cardStats[card.id].learned = true;
       this.updateProgress();
+      this.saveState();
       this.dispatch("card-learned", { card });
       this.nextCard();
     }
@@ -185,6 +188,8 @@
 
       this.reviewIds.add(card.id);
       this.cardStats[card.id].reviewFlagged = true;
+      this.updateProgress();
+      this.saveState();
       this.dispatch("card-review", { card });
       this.nextCard();
     }
@@ -214,6 +219,8 @@
       const recent = history.slice(-3);
       const avg = recent.reduce((sum, value) => sum + value, 0) / recent.length;
       this.cardStats[cardId].avgConfidence = avg;
+      this.updateProgress();
+      this.saveState();
 
       this.dispatch("confidence-recorded", { cardId, rating: safeRating, avgConfidence: avg });
     }
@@ -237,8 +244,8 @@
 
       for (const subject of SUBJECTS) {
         const subjectCards = FLASHCARD_DECK.filter((card) => card.subject === subject);
-        const learnedCount = subjectCards.filter((card) => this.learnedIds.has(card.id)).length;
-        progress[subject] = subjectCards.length ? learnedCount / subjectCards.length : 0;
+        const completedCount = subjectCards.filter((card) => this.isCardCompleted(card.id)).length;
+        progress[subject] = subjectCards.length ? completedCount / subjectCards.length : 0;
       }
 
       return progress;
@@ -314,6 +321,8 @@
         const ratio = progress[subject] || 0;
         const percentage = Math.round(ratio * 100);
         const entry = this.progressElements[subject];
+        const subjectCards = FLASHCARD_DECK.filter((card) => card.subject === subject);
+        const completedCount = subjectCards.filter((card) => this.isCardCompleted(card.id)).length;
 
         if (!entry || !entry.fill) {
           continue;
@@ -324,11 +333,13 @@
         entry.fill.style.stroke = this.getProgressColor(percentage);
 
         if (entry.label) {
-          entry.label.textContent = subject + " " + percentage + "%";
+          entry.label.textContent = subject;
         }
 
         if (entry.button) {
           entry.button.setAttribute("aria-label", subject + " progress " + percentage + " percent");
+          entry.button.dataset.progress = percentage + "%";
+          entry.button.dataset.detail = completedCount + "/" + subjectCards.length + " cards";
           entry.button.classList.toggle("complete", percentage === 100);
         }
       }
@@ -548,6 +559,69 @@
 
     clamp(value, min, max) {
       return Math.min(max, Math.max(min, value));
+    }
+
+    isCardCompleted(cardId) {
+      const stats = this.cardStats[cardId];
+
+      return Boolean(
+        this.learnedIds.has(cardId) ||
+        this.reviewIds.has(cardId) ||
+        stats?.learned ||
+        stats?.reviewFlagged ||
+        typeof stats?.avgConfidence === "number"
+      );
+    }
+
+    saveState() {
+      try {
+        window.localStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify({
+            learnedIds: Array.from(this.learnedIds),
+            reviewIds: Array.from(this.reviewIds),
+            confidenceHistory: this.confidenceHistory,
+            reviewMeta: this.reviewMeta,
+            cardStats: this.cardStats
+          })
+        );
+      } catch (error) {
+        console.warn("[AdaptiveStudy] Unable to persist study state:", error);
+      }
+    }
+
+    loadPersistedState() {
+      try {
+        const raw = window.localStorage.getItem(STORAGE_KEY);
+
+        if (!raw) {
+          return;
+        }
+
+        const parsed = JSON.parse(raw);
+
+        if (Array.isArray(parsed.learnedIds)) {
+          this.learnedIds = new Set(parsed.learnedIds);
+        }
+
+        if (Array.isArray(parsed.reviewIds)) {
+          this.reviewIds = new Set(parsed.reviewIds);
+        }
+
+        if (parsed.confidenceHistory && typeof parsed.confidenceHistory === "object") {
+          this.confidenceHistory = parsed.confidenceHistory;
+        }
+
+        if (parsed.reviewMeta && typeof parsed.reviewMeta === "object") {
+          this.reviewMeta = Object.assign(this.reviewMeta, parsed.reviewMeta);
+        }
+
+        if (parsed.cardStats && typeof parsed.cardStats === "object") {
+          this.cardStats = Object.assign(this.cardStats, parsed.cardStats);
+        }
+      } catch (error) {
+        console.warn("[AdaptiveStudy] Unable to restore study state:", error);
+      }
     }
   }
 
