@@ -132,29 +132,30 @@
       return "<!DOCTYPE html><html lang='en'><head><meta charset='UTF-8'><title>AdaptiveStudy — Session Report</title>" +
         "<style>" +
         "body{margin:0;background:#FAF8F3;color:#2C2C2C;font-family:'DM Sans',sans-serif;-webkit-font-smoothing:antialiased;}" +
-        ".wrap{max-width:1040px;margin:0 auto;padding:36px 28px 44px;}" +
-        ".hero{padding:28px 30px;border-radius:28px;background:linear-gradient(135deg,#ffffff,#f6f1e8);border:1px solid #E8E4DC;box-shadow:0 10px 30px rgba(0,0,0,0.08);}" +
+        ".wrap{max-width:840px;margin:0 auto;padding:18mm 14mm 18mm;}" +
+        ".hero{padding:22px 24px;border-radius:22px;background:linear-gradient(135deg,#ffffff,#f6f1e8);border:1px solid #E8E4DC;box-shadow:0 10px 30px rgba(0,0,0,0.08);page-break-inside:avoid;}" +
         "h1,h2,h3{font-family:'Playfair Display',serif;margin:0;}" +
-        ".hero h1{font-size:42px;line-height:1.05;}" +
-        ".hero p{margin-top:12px;color:#7A7670;line-height:1.8;max-width:64ch;}" +
-        ".meta{display:flex;gap:18px;flex-wrap:wrap;margin-top:18px;color:#7A7670;font-size:13px;text-transform:uppercase;letter-spacing:.08em;}" +
-        ".grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin:24px 0;}" +
-        ".tile{padding:18px;border-radius:18px;background:#fff;border:1px solid #E8E4DC;box-shadow:0 6px 18px rgba(0,0,0,0.05);}" +
+        ".hero h1{font-size:34px;line-height:1.08;}" +
+        ".hero p{margin-top:10px;color:#7A7670;line-height:1.65;max-width:62ch;font-size:14px;}" +
+        ".meta{display:flex;gap:12px;flex-wrap:wrap;margin-top:14px;color:#7A7670;font-size:11px;text-transform:uppercase;letter-spacing:.08em;}" +
+        ".grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:16px 0;page-break-inside:avoid;}" +
+        ".tile{padding:14px 14px 12px;border-radius:16px;background:#fff;border:1px solid #E8E4DC;box-shadow:0 6px 18px rgba(0,0,0,0.05);}" +
         ".tile span{display:block;color:#B0ADA6;font-size:11px;letter-spacing:.08em;text-transform:uppercase;}" +
-        ".tile strong{display:block;margin-top:8px;font-family:'Playfair Display',serif;font-size:30px;}" +
-        ".report-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:18px;}" +
-        ".card{padding:22px;border-radius:20px;background:#fff;border:1px solid #E8E4DC;box-shadow:0 6px 18px rgba(0,0,0,0.05);}" +
-        ".card h2{font-size:28px;margin-bottom:14px;}" +
-        ".card p{color:#7A7670;line-height:1.8;}" +
+        ".tile strong{display:block;margin-top:6px;font-family:'Playfair Display',serif;font-size:24px;}" +
+        ".report-grid{display:grid;grid-template-columns:1fr;gap:12px;}" +
+        ".card{padding:16px;border-radius:18px;background:#fff;border:1px solid #E8E4DC;box-shadow:0 6px 18px rgba(0,0,0,0.05);page-break-inside:avoid;}" +
+        ".card h2{font-size:23px;margin-bottom:10px;}" +
+        ".card p{color:#7A7670;line-height:1.65;font-size:13px;}" +
         ".accent{display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;background:#EAF4ED;color:#4A8A59;font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px;}" +
-        ".spark{padding:18px;border-radius:16px;background:#F2EFE7;font-size:22px;overflow:auto;letter-spacing:.14em;color:#4A7B95;}" +
-        "table{width:100%;border-collapse:collapse;}th,td{padding:12px 0;border-bottom:1px solid #E8E4DC;text-align:left;}th{font-size:11px;color:#B0ADA6;text-transform:uppercase;letter-spacing:.08em;}" +
-        "ul{margin:0;padding-left:18px;color:#7A7670;line-height:1.8;}" +
+        ".spark{padding:14px;border-radius:14px;background:#F2EFE7;font-size:18px;overflow:auto;letter-spacing:.1em;color:#4A7B95;}" +
+        "table{width:100%;border-collapse:collapse;}th,td{padding:9px 0;border-bottom:1px solid #E8E4DC;text-align:left;font-size:13px;}th{font-size:10px;color:#B0ADA6;text-transform:uppercase;letter-spacing:.08em;}" +
+        "ul{margin:0;padding-left:18px;color:#7A7670;line-height:1.65;font-size:13px;}" +
         ".timeline{display:grid;gap:10px;padding:0;list-style:none;}" +
-        ".timeline li{display:grid;grid-template-columns:110px 1fr;gap:12px;padding:10px 0;border-bottom:1px solid #E8E4DC;color:#7A7670;}" +
-        ".rec{margin-top:18px;padding:16px 18px;border-radius:16px;background:#FBF0E3;color:#C07A2F;line-height:1.8;}" +
-        ".footer{margin-top:22px;color:#B0ADA6;font-size:12px;text-align:center;}" +
-        "@media print{body{background:#fff;} .wrap{padding:0;} .hero,.tile,.card{box-shadow:none;} .hero{border-bottom:2px solid #E8E4DC;} }" +
+        ".timeline li{display:grid;grid-template-columns:88px 1fr;gap:10px;padding:8px 0;border-bottom:1px solid #E8E4DC;color:#7A7670;font-size:12px;}" +
+        ".rec{margin-top:14px;padding:12px 14px;border-radius:14px;background:#FBF0E3;color:#C07A2F;line-height:1.65;font-size:13px;}" +
+        ".footer{margin-top:16px;color:#B0ADA6;font-size:11px;text-align:center;}" +
+        "@page{size:A4 portrait;margin:12mm;}" +
+        "@media print{body{background:#fff;} .wrap{max-width:none;padding:0;} .hero,.tile,.card{box-shadow:none;} .hero{border-bottom:2px solid #E8E4DC;} .grid{grid-template-columns:repeat(2,minmax(0,1fr));} .report-grid{grid-template-columns:1fr;} }" +
         "</style></head><body><div class='wrap'>" +
         "<section class='hero'>" +
         "<div class='accent'>AdaptiveStudy Session Report</div>" +
@@ -180,7 +181,7 @@
         "</tbody></table></div>" +
         "<div class='card'><h2>Subject Mastery</h2><table><thead><tr><th>Subject</th><th>Mastery</th><th>Level</th></tr></thead><tbody>" + masteryRows + "</tbody></table></div>" +
         "<div class='card'><h2>Struggle Cards</h2><ul>" + (struggleRows || "<li>No struggle cards recorded yet.</li>") + "</ul></div>" +
-        "<div class='card' style='grid-column:1 / -1;'><h2>Session Timeline</h2><ul class='timeline'>" + timeline + "</ul></div>" +
+        "<div class='card'><h2>Session Timeline</h2><ul class='timeline'>" + timeline + "</ul></div>" +
         "</div><div class='footer'>Printed from AdaptiveStudy — Cognitive Load-Aware Study Dashboard</div></div></body></html>";
     }
 
