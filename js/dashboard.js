@@ -26,9 +26,18 @@
     const demoBadge = document.getElementById("demo-badge");
     const shortcutModal = document.getElementById("shortcut-modal");
     const researchOverlay = document.getElementById("research-overlay");
-    const onboardingOverlay = document.getElementById("onboarding-overlay");
     const quickSheet = document.getElementById("quick-actions-sheet");
     const quickSheetFab = document.getElementById("fab-quick-actions");
+    const welcomeModal = document.getElementById("welcome-modal");
+    const nameInput = document.getElementById("user-name-input");
+    const startSessionButton = document.getElementById("btn-start-session");
+    const sessionSummaryOverlay = document.getElementById("session-summary-overlay");
+    const sessionSummaryTitle = document.getElementById("session-summary-title");
+    const sessionSummarySubtitle = document.getElementById("session-summary-subtitle");
+    const endSessionButton = document.getElementById("btn-end-session");
+    const summaryCloseButton = document.getElementById("btn-close-session-summary");
+    const summaryExportButton = document.getElementById("btn-summary-export");
+    const startNewSessionButton = document.getElementById("btn-start-new-session");
 
     let sessionSeconds = 0;
     let breakSuggestionShown = false;
@@ -37,6 +46,8 @@
     let demoModeActive = false;
     let demoStartedAt = 0;
     let lastDemoPhase = null;
+    let userName = loadUserName();
+    let sessionEnded = false;
 
     content.renderCard();
     restoreNotes();
@@ -50,6 +61,7 @@
     updateTopicPillCounts();
     syncPanelButtonStates();
     startRealPolling();
+    initializeWelcome();
     analytics.logEvent("card_seen", { subject: content.getCurrentCard()?.subject || null });
 
     engine.onCalibrationComplete((data) => {
@@ -63,7 +75,7 @@
       tour.start();
     });
 
-    if (tour.shouldShow()) {
+    if (tour.shouldShow() && userName) {
       window.setTimeout(() => tour.start(), 1800);
     }
 
@@ -73,7 +85,7 @@
     }, { passive: true });
 
     document.getElementById("btn-export-report")?.addEventListener("click", () => {
-      analytics.exportReport();
+      exportSessionReport();
     });
 
     document.getElementById("btn-shortcuts")?.addEventListener("click", () => {
@@ -108,6 +120,10 @@
 
     function startSessionTimer() {
       timerIntervalId = window.setInterval(() => {
+        if (sessionEnded) {
+          return;
+        }
+
         sessionSeconds += 1;
         updateSessionTimer();
 
@@ -142,6 +158,10 @@
     }
 
     function applyMetrics(metrics) {
+      if (sessionEnded) {
+        return;
+      }
+
       ui.updateMetricBars(metrics);
       ui.updateLoadGauge(metrics.composite);
       ui.updateLoadGaugeColor(metrics.composite);
@@ -174,6 +194,17 @@
       document.getElementById("btn-sheet-flip")?.addEventListener("click", () => content.flipCard());
       document.getElementById("btn-sheet-skip")?.addEventListener("click", () => content.nextCard());
       document.getElementById("btn-sheet-demo")?.addEventListener("click", toggleDemoMode);
+      endSessionButton?.addEventListener("click", endSession);
+      summaryCloseButton?.addEventListener("click", () => {
+        if (sessionSummaryOverlay) {
+          sessionSummaryOverlay.hidden = true;
+        }
+      });
+      summaryExportButton?.addEventListener("click", exportSessionReport);
+      startNewSessionButton?.addEventListener("click", () => {
+        window.location.reload();
+      });
+      startSessionButton?.addEventListener("click", saveUserNameFromInput);
 
       demoToggleButton?.addEventListener("click", toggleDemoMode);
 
@@ -246,6 +277,14 @@
 
         if (event.key === "Escape") {
           closeOverlays();
+          return;
+        }
+
+        if (event.key === "e" || event.key === "E") {
+          if (!shouldIgnoreShortcut(event)) {
+            event.preventDefault();
+            endSession();
+          }
           return;
         }
 
@@ -576,6 +615,126 @@
 
     function clamp(value, min = 0, max = 100) {
       return Math.min(max, Math.max(min, value));
+    }
+
+    function initializeWelcome() {
+      if (userName) {
+        return;
+      }
+
+      if (welcomeModal) {
+        welcomeModal.hidden = false;
+      }
+
+      window.setTimeout(() => nameInput?.focus(), 120);
+    }
+
+    function loadUserName() {
+      try {
+        return window.localStorage.getItem("adaptivestudy-user-name") || "";
+      } catch (error) {
+        return "";
+      }
+    }
+
+    function saveUserNameFromInput() {
+      const value = nameInput?.value.trim() || "";
+
+      if (!value) {
+        nameInput?.focus();
+        return;
+      }
+
+      userName = value;
+
+      try {
+        window.localStorage.setItem("adaptivestudy-user-name", userName);
+      } catch (error) {
+        console.warn("[AdaptiveStudy] Unable to save user name:", error);
+      }
+
+      if (welcomeModal) {
+        welcomeModal.hidden = true;
+      }
+
+      ui.showToast("Welcome, " + userName + ". Let's study well.", "success");
+
+      if (tour.shouldShow()) {
+        window.setTimeout(() => tour.start(), 700);
+      }
+    }
+
+    function exportSessionReport() {
+      const result = analytics.exportReport({ userName: userName || "Learner" });
+
+      if (result?.mode === "download") {
+        ui.showToast("Popup blocked, so the report was downloaded instead.", "warning");
+      }
+    }
+
+    function endSession() {
+      if (sessionEnded) {
+        if (sessionSummaryOverlay) {
+          sessionSummaryOverlay.hidden = false;
+        }
+        return;
+      }
+
+      sessionEnded = true;
+      clearDemoTimer();
+      demoModeActive = false;
+      setDemoUiState(false);
+      engine.stopPolling();
+      analytics.logEvent("session_end", { durationMs: sessionSeconds * 1000 });
+
+      if (timerIntervalId !== null) {
+        window.clearInterval(timerIntervalId);
+        timerIntervalId = null;
+      }
+
+      populateSessionSummary();
+      if (sessionSummaryOverlay) {
+        sessionSummaryOverlay.hidden = false;
+      }
+
+      ui.showToast("Session closed beautifully. Export the report when you're ready.", "success");
+    }
+
+    function populateSessionSummary() {
+      const stats = analytics.getStats();
+      const summary = content.getSessionSummary();
+      const safeName = userName || "Learner";
+
+      if (sessionSummaryTitle) {
+        sessionSummaryTitle.textContent = "Amazing work, " + safeName + ".";
+      }
+
+      if (sessionSummarySubtitle) {
+        sessionSummarySubtitle.textContent =
+          "You completed a reflective study session. AdaptiveStudy tracked your focus, adapted the interface, and captured a final performance snapshot for your report.";
+      }
+
+      setText("summary-cards-seen", String(stats.cardsSeen));
+      setText("summary-cards-learned", String(stats.cardsLearned));
+      setText("summary-avg-load", String(Math.round(stats.avgLoadScore)));
+      setText("summary-duration", formatDuration(stats.sessionDurationMs));
+      setText("summary-top-subject", summary.topSubject || "Still emerging");
+      setText("summary-weak-subject", summary.weakSubject || "Balanced");
+      setText("summary-calm-time", Math.round(stats.calmModePct) + "%");
+    }
+
+    function setText(id, value) {
+      const element = document.getElementById(id);
+      if (element) {
+        element.textContent = value;
+      }
+    }
+
+    function formatDuration(durationMs) {
+      const totalSeconds = Math.floor((durationMs || 0) / 1000);
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      return String(minutes).padStart(2, "0") + ":" + String(seconds).padStart(2, "0");
     }
   });
 })();

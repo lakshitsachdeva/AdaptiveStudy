@@ -6,38 +6,44 @@
       this.steps = [
         {
           title: "Welcome to AdaptiveStudy",
-          body: "This dashboard adapts to your cognitive state in real time. Let's take a quick tour.",
+          body: "This dashboard adapts to your cognitive state in real time. The easiest presentation flow is: show the dashboard, explain the four sensors, then trigger Demo Mode and narrate the interface adapting.",
           targetSelector: null,
           position: "center"
         },
         {
           title: "Mental Load Gauge",
-          body: "This circle shows your live cognitive load score from 0–100, computed from your mouse movement, typing rhythm, and scroll behavior.",
+          body: "This circle shows the live Mental Load Score from 0 to 100. It is computed from cursor entropy, hesitation, error rate, and scroll rhythm, then smoothed so the interface does not jitter.",
           targetSelector: "#navbar",
           position: "bottom"
         },
         {
           title: "Live Cognitive Sensors",
-          body: "These four bars show the raw readings from each behavioral sensor. Watch them move as you interact.",
+          body: "These four bars are the raw behavioral signals. In your presentation, explain that hesitation is the strongest predictor, while the others provide supporting evidence about stress, confusion, or disorientation.",
           targetSelector: "#right-panel",
           position: "left"
         },
         {
           title: "Your Study Cards",
-          body: "Flashcards adapt to your load state — when you're overwhelmed, harder cards are hidden automatically.",
+          body: "The flashcards are content-adaptive. Under high load, the dashboard simplifies the content and prioritizes easier or struggle cards so the learner is not overwhelmed.",
           targetSelector: ".study-card",
           position: "top"
         },
         {
           title: "Subject Navigation",
-          body: "Browse topics here and track your progress per subject with the rings.",
+          body: "The sidebar shows topic pills, completion progress, and mastery trends. This helps you explain that AdaptiveStudy is not only sensing load, but also connecting that signal to actual learning progress.",
           targetSelector: "#sidebar",
           position: "right"
         },
         {
           title: "Demo Mode",
-          body: "Hit the Demo button to simulate a cognitive load curve — great for showing how the interface adapts.",
+          body: "Use Demo Mode in the presentation. It creates a smooth 20-second arc from low load to overload to recovery, so you can reliably show Calm Mode activating and then restoring Focus Mode.",
           targetSelector: "#btn-demo",
+          position: "bottom"
+        },
+        {
+          title: "How to Present It",
+          body: "Say this clearly: AdaptiveStudy passively senses behavioral signals, fuses them into a Mental Load Score, and adapts the interface to reduce extraneous cognitive load. Then show the final report and end-session summary as the closing proof of value.",
+          targetSelector: "#btn-end-session",
           position: "bottom"
         }
       ];

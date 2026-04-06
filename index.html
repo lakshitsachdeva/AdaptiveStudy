@@ -98,6 +98,9 @@
           ⌨ Shortcuts
         </button>
         <button class="nav-btn" id="btn-tour" type="button" aria-label="Start guided tour">◎ Tour</button>
+        <button class="nav-btn" id="btn-end-session" type="button" aria-label="End study session">
+          Finish Session
+        </button>
         <span id="demo-badge" class="demo-mode-badge" hidden>DEMO</span>
       </div>
     </header>
@@ -480,6 +483,72 @@
           <div class="shortcut-row"><kbd>Ctrl</kbd><kbd>R</kbd><span>Research Overlay</span></div>
           <div class="shortcut-row"><kbd>?</kbd><span>This shortcut guide</span></div>
           <div class="shortcut-row"><kbd>Esc</kbd><span>Close any overlay</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="welcome-modal" class="modal-overlay welcome-modal" role="dialog" aria-modal="true" aria-label="Start your study session" hidden>
+      <div class="modal-card welcome-card">
+        <h2 class="modal-title">Welcome to AdaptiveStudy</h2>
+        <p class="welcome-copy">
+          Tell me your name so the session can feel personal and the end-of-session summary can celebrate your work properly.
+        </p>
+        <label class="welcome-label" for="user-name-input">Your Name</label>
+        <input id="user-name-input" class="welcome-input" type="text" maxlength="40" placeholder="e.g. Lakshit" />
+        <div class="welcome-actions">
+          <button id="btn-start-session" class="tour-btn-pri btn" type="button">Start Session</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="session-summary-overlay" class="modal-overlay session-summary-overlay" role="dialog" aria-modal="true" aria-label="Session summary" hidden>
+      <div class="session-summary-card" id="session-summary-card">
+        <div class="session-finale-burst" aria-hidden="true"></div>
+        <div class="session-finale-burst session-finale-burst-alt" aria-hidden="true"></div>
+        <button class="modal-close btn" id="btn-close-session-summary" type="button" aria-label="Close session summary">✕</button>
+        <div class="session-summary-kicker">Session Complete</div>
+        <h2 class="session-summary-title" id="session-summary-title">Amazing work</h2>
+        <p class="session-summary-subtitle" id="session-summary-subtitle">
+          You finished a thoughtful study block and AdaptiveStudy tracked how your focus evolved through it.
+        </p>
+
+        <div class="session-summary-stats">
+          <div class="session-summary-stat">
+            <span class="session-summary-value" id="summary-cards-seen">0</span>
+            <span class="session-summary-label">Cards Seen</span>
+          </div>
+          <div class="session-summary-stat">
+            <span class="session-summary-value" id="summary-cards-learned">0</span>
+            <span class="session-summary-label">Learned</span>
+          </div>
+          <div class="session-summary-stat">
+            <span class="session-summary-value" id="summary-avg-load">0</span>
+            <span class="session-summary-label">Avg Load</span>
+          </div>
+          <div class="session-summary-stat">
+            <span class="session-summary-value" id="summary-duration">00:00</span>
+            <span class="session-summary-label">Duration</span>
+          </div>
+        </div>
+
+        <div class="session-summary-highlights">
+          <div class="session-summary-highlight">
+            <span class="session-summary-highlight-label">Top Subject</span>
+            <strong id="summary-top-subject">—</strong>
+          </div>
+          <div class="session-summary-highlight">
+            <span class="session-summary-highlight-label">Needs Review</span>
+            <strong id="summary-weak-subject">—</strong>
+          </div>
+          <div class="session-summary-highlight">
+            <span class="session-summary-highlight-label">Calm Mode Time</span>
+            <strong id="summary-calm-time">0%</strong>
+          </div>
+        </div>
+
+        <div class="session-summary-actions">
+          <button id="btn-summary-export" class="tour-btn-pri btn" type="button">Export Beautiful PDF</button>
+          <button id="btn-start-new-session" class="tour-btn-sec btn" type="button">Start New Session</button>
         </div>
       </div>
     </div>

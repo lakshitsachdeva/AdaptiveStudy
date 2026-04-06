@@ -103,7 +103,7 @@
       return this.loadHistory.slice(-60);
     }
 
-    generateReportHTML() {
+    generateReportHTML(options = {}) {
       const stats = this.getStats();
       const content = window.StudyContent;
       const summary = content && typeof content.getSessionSummary === "function" ? content.getSessionSummary() : null;
@@ -112,8 +112,15 @@
       const history = this.getLoadHistory();
       const sparkline = this.toTextSparkline(history);
       const duration = this.formatDuration(stats.sessionDurationMs);
+      const userName = options.userName ? this.escape(options.userName) : "Learner";
+      const topSubject = summary?.topSubject || "Still emerging";
+      const weakSubject = summary?.weakSubject || "None yet";
+      const avgConfidence = summary?.avgConfidence ? (summary.avgConfidence / 3) * 100 : 0;
+      const recommendation = stats.calmModePct > 35
+        ? "The learner spent substantial time in high-load states. Future sessions should begin with easier warm-up cards and shorter blocks."
+        : "The learner remained relatively stable. Future sessions can gradually introduce more medium and hard cards earlier in the block.";
       const timeline = this.events.slice(-20).map((event) => {
-        return "<li><strong>" + this.formatTime(event.timestamp) + "</strong> — " + this.escape(event.type.replace(/_/g, " ")) + "</li>";
+        return "<li><strong>" + this.formatTime(event.timestamp) + "</strong><span>" + this.escape(event.type.replace(/_/g, " ")) + "</span></li>";
       }).join("");
       const masteryRows = Object.keys(mastery).map((subject) => {
         return "<tr><td>" + this.escape(subject) + "</td><td>" + Math.round(mastery[subject].pct * 100) + "%</td><td>" + this.escape(mastery[subject].level) + "</td></tr>";
@@ -124,49 +131,88 @@
 
       return "<!DOCTYPE html><html lang='en'><head><meta charset='UTF-8'><title>AdaptiveStudy — Session Report</title>" +
         "<style>" +
-        "body{margin:0;padding:32px;background:#FAF8F3;color:#2C2C2C;font-family:'DM Sans',sans-serif;}" +
-        "h1,h2,h3{font-family:'Playfair Display',serif;margin:0 0 10px;}" +
-        ".wrap{max-width:960px;margin:0 auto;}" +
-        ".grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin:24px 0;}" +
-        ".tile,.card{background:#fff;border:1px solid #E8E4DC;border-radius:14px;padding:18px;box-shadow:0 2px 16px rgba(0,0,0,0.06);}" +
-        ".tile strong{display:block;font-size:28px;font-family:'Playfair Display',serif;}" +
-        "table{width:100%;border-collapse:collapse;}td,th{padding:10px;border-bottom:1px solid #E8E4DC;text-align:left;}" +
-        "ul{padding-left:18px;}pre{background:#F2EFE7;padding:14px;border-radius:10px;overflow:auto;}" +
+        "body{margin:0;background:#FAF8F3;color:#2C2C2C;font-family:'DM Sans',sans-serif;-webkit-font-smoothing:antialiased;}" +
+        ".wrap{max-width:1040px;margin:0 auto;padding:36px 28px 44px;}" +
+        ".hero{padding:28px 30px;border-radius:28px;background:linear-gradient(135deg,#ffffff,#f6f1e8);border:1px solid #E8E4DC;box-shadow:0 10px 30px rgba(0,0,0,0.08);}" +
+        "h1,h2,h3{font-family:'Playfair Display',serif;margin:0;}" +
+        ".hero h1{font-size:42px;line-height:1.05;}" +
+        ".hero p{margin-top:12px;color:#7A7670;line-height:1.8;max-width:64ch;}" +
+        ".meta{display:flex;gap:18px;flex-wrap:wrap;margin-top:18px;color:#7A7670;font-size:13px;text-transform:uppercase;letter-spacing:.08em;}" +
+        ".grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin:24px 0;}" +
+        ".tile{padding:18px;border-radius:18px;background:#fff;border:1px solid #E8E4DC;box-shadow:0 6px 18px rgba(0,0,0,0.05);}" +
+        ".tile span{display:block;color:#B0ADA6;font-size:11px;letter-spacing:.08em;text-transform:uppercase;}" +
+        ".tile strong{display:block;margin-top:8px;font-family:'Playfair Display',serif;font-size:30px;}" +
+        ".report-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:18px;}" +
+        ".card{padding:22px;border-radius:20px;background:#fff;border:1px solid #E8E4DC;box-shadow:0 6px 18px rgba(0,0,0,0.05);}" +
+        ".card h2{font-size:28px;margin-bottom:14px;}" +
+        ".card p{color:#7A7670;line-height:1.8;}" +
+        ".accent{display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;background:#EAF4ED;color:#4A8A59;font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px;}" +
+        ".spark{padding:18px;border-radius:16px;background:#F2EFE7;font-size:22px;overflow:auto;letter-spacing:.14em;color:#4A7B95;}" +
+        "table{width:100%;border-collapse:collapse;}th,td{padding:12px 0;border-bottom:1px solid #E8E4DC;text-align:left;}th{font-size:11px;color:#B0ADA6;text-transform:uppercase;letter-spacing:.08em;}" +
+        "ul{margin:0;padding-left:18px;color:#7A7670;line-height:1.8;}" +
+        ".timeline{display:grid;gap:10px;padding:0;list-style:none;}" +
+        ".timeline li{display:grid;grid-template-columns:110px 1fr;gap:12px;padding:10px 0;border-bottom:1px solid #E8E4DC;color:#7A7670;}" +
+        ".rec{margin-top:18px;padding:16px 18px;border-radius:16px;background:#FBF0E3;color:#C07A2F;line-height:1.8;}" +
+        ".footer{margin-top:22px;color:#B0ADA6;font-size:12px;text-align:center;}" +
+        "@media print{body{background:#fff;} .wrap{padding:0;} .hero,.tile,.card{box-shadow:none;} .hero{border-bottom:2px solid #E8E4DC;} }" +
         "</style></head><body><div class='wrap'>" +
-        "<h1>AdaptiveStudy — Session Report</h1>" +
-        "<p>Date: " + this.escape(new Date().toLocaleString()) + "</p>" +
-        "<p>Duration: " + this.escape(duration) + "</p>" +
+        "<section class='hero'>" +
+        "<div class='accent'>AdaptiveStudy Session Report</div>" +
+        "<h1>Amazing work, " + userName + ".</h1>" +
+        "<p>This report captures your study flow, how your cognitive load changed through the session, and where the interface adapted to support focus and recovery.</p>" +
+        "<div class='meta'><span>Date: " + this.escape(new Date().toLocaleString()) + "</span><span>Duration: " + this.escape(duration) + "</span><span>Top Subject: " + this.escape(topSubject) + "</span></div>" +
+        "</section>" +
         "<div class='grid'>" +
-        "<div class='tile'><span>Avg Load</span><strong>" + Math.round(stats.avgLoadScore) + "</strong></div>" +
+        "<div class='tile'><span>Average Load</span><strong>" + Math.round(stats.avgLoadScore) + "</strong></div>" +
         "<div class='tile'><span>Peak Load</span><strong>" + Math.round(stats.peakLoadScore) + "</strong></div>" +
         "<div class='tile'><span>Calm Time</span><strong>" + Math.round(stats.calmModePct) + "%</strong></div>" +
-        "<div class='tile'><span>Cards Learned</span><strong>" + stats.cardsLearned + "</strong></div>" +
+        "<div class='tile'><span>Confidence</span><strong>" + Math.round(avgConfidence) + "%</strong></div>" +
         "</div>" +
-        "<div class='card'><h2>Load History</h2><pre>" + this.escape(sparkline) + "</pre></div>" +
+        "<div class='report-grid'>" +
+        "<div class='card'><h2>Load History</h2><p>The sparkline below shows how the mental load score evolved through the session.</p><div class='spark'>" + this.escape(sparkline) + "</div><div class='rec'><strong>Observation:</strong> " + this.escape(recommendation) + "</div></div>" +
+        "<div class='card'><h2>Session Snapshot</h2><table><tbody>" +
+        "<tr><th>Cards Seen</th><td>" + stats.cardsSeen + "</td></tr>" +
+        "<tr><th>Cards Learned</th><td>" + stats.cardsLearned + "</td></tr>" +
+        "<tr><th>Review Later</th><td>" + stats.cardsReview + "</td></tr>" +
+        "<tr><th>Mode Switches</th><td>" + stats.modeSwitchCount + "</td></tr>" +
+        "<tr><th>Strongest Subject</th><td>" + this.escape(topSubject) + "</td></tr>" +
+        "<tr><th>Needs Review</th><td>" + this.escape(weakSubject) + "</td></tr>" +
+        "</tbody></table></div>" +
         "<div class='card'><h2>Subject Mastery</h2><table><thead><tr><th>Subject</th><th>Mastery</th><th>Level</th></tr></thead><tbody>" + masteryRows + "</tbody></table></div>" +
-        "<div class='card'><h2>Top Struggle Cards</h2><ul>" + (struggleRows || "<li>No struggle cards recorded yet.</li>") + "</ul></div>" +
-        "<div class='card'><h2>Session Event Log</h2><ul>" + timeline + "</ul></div>" +
-        "</div></body></html>";
+        "<div class='card'><h2>Struggle Cards</h2><ul>" + (struggleRows || "<li>No struggle cards recorded yet.</li>") + "</ul></div>" +
+        "<div class='card' style='grid-column:1 / -1;'><h2>Session Timeline</h2><ul class='timeline'>" + timeline + "</ul></div>" +
+        "</div><div class='footer'>Printed from AdaptiveStudy — Cognitive Load-Aware Study Dashboard</div></div></body></html>";
     }
 
-    exportReport() {
-      const html = this.generateReportHTML();
-      const reportWindow = window.open("", "_blank", "noopener,noreferrer");
+    exportReport(options = {}) {
+      const html = this.generateReportHTML(options);
+      const reportWindow = window.open("about:blank", "_blank");
 
-      if (!reportWindow) {
-        return;
+      if (reportWindow) {
+        reportWindow.document.open();
+        reportWindow.document.write(html);
+        reportWindow.document.close();
+
+        window.setTimeout(() => {
+          try {
+            reportWindow.focus();
+            reportWindow.print();
+          } catch (error) {
+            console.warn("[AdaptiveStudy] Print unavailable:", error);
+          }
+        }, 500);
+
+        return { success: true, mode: "popup" };
       }
 
-      reportWindow.document.write(html);
-      reportWindow.document.close();
-
-      window.setTimeout(() => {
-        try {
-          reportWindow.print();
-        } catch (error) {
-          console.warn("[AdaptiveStudy] Print unavailable:", error);
-        }
-      }, 350);
+      const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = "AdaptiveStudy-Session-Report.html";
+      anchor.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      return { success: true, mode: "download" };
     }
 
     toTextSparkline(values) {
