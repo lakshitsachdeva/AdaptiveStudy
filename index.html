@@ -62,49 +62,82 @@
       </div>
 
       <div id="navbar-status-widgets" class="navbar-status-widgets">
-        <section
-          id="mental-load-widget"
-          class="mental-load-widget load-medium"
-          aria-labelledby="mental-load-heading"
-          style="--load-pct: 48;"
-        >
-          <h1 id="mental-load-heading" class="sr-only">Mental Load</h1>
-          <div id="mental-load-gauge-wrapper" class="mental-load-gauge-wrapper">
-            <svg
-              id="mental-load-gauge"
-              class="mental-load-gauge"
-              viewBox="0 0 60 60"
-              role="img"
-              aria-label="Mental load score"
-              aria-live="polite"
-              aria-atomic="true"
-            >
-              <circle id="mental-load-gauge-track" class="mental-load-gauge-track" cx="30" cy="30" r="26"></circle>
-              <circle id="mental-load-gauge-fill" class="mental-load-gauge-fill" cx="30" cy="30" r="26"></circle>
-              <text id="mental-load-score" class="mental-load-score" x="30" y="32" text-anchor="middle">48</text>
-            </svg>
-            <div id="mental-load-text-block" class="mental-load-text-block">
-              <span id="mental-load-label" class="mental-load-label">Mental Load</span>
-              <span id="mental-load-range-label" class="mental-load-range-label">Moderate</span>
+        <div class="navbar-load-cluster">
+          <section
+            id="mental-load-widget"
+            class="mental-load-widget load-medium"
+            aria-labelledby="mental-load-heading"
+            style="--load-pct: 48;"
+          >
+            <h1 id="mental-load-heading" class="sr-only">Mental Load</h1>
+            <div id="mental-load-gauge-wrapper" class="mental-load-gauge-wrapper">
+              <svg
+                id="mental-load-gauge"
+                class="mental-load-gauge"
+                viewBox="0 0 60 60"
+                role="img"
+                aria-label="Mental load score"
+                aria-live="polite"
+                aria-atomic="true"
+              >
+                <circle id="mental-load-gauge-track" class="mental-load-gauge-track" cx="30" cy="30" r="26"></circle>
+                <circle id="mental-load-gauge-fill" class="mental-load-gauge-fill" cx="30" cy="30" r="26"></circle>
+                <text id="mental-load-score" class="mental-load-score" x="30" y="32" text-anchor="middle">48</text>
+              </svg>
+              <div id="mental-load-text-block" class="mental-load-text-block">
+                <span id="mental-load-label" class="mental-load-label">Mental Load</span>
+                <span id="mental-load-range-label" class="mental-load-range-label">Moderate</span>
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
 
-        <span id="study-mode-badge" class="study-mode-badge mode-focus" aria-live="polite">⚡ Focus Mode</span>
-        <button id="btn-demo" class="navbar-demo-button" type="button" aria-pressed="false" aria-label="Toggle demo mode">
-          Demo Mode
-        </button>
-        <button class="nav-btn" id="btn-shortcuts" type="button" aria-label="Keyboard shortcuts (press question mark)">
-          ⌨ Shortcuts
-        </button>
-        <button class="nav-btn" id="btn-tour" type="button" aria-label="Start guided tour">◎ Tour</button>
-        <button class="nav-btn" id="btn-end-session" type="button" aria-label="End study session">
-          Finish Session
-        </button>
-        <button class="nav-btn" id="btn-reset-session" type="button" aria-label="Reset saved session data">
-          Reset
-        </button>
-        <span id="demo-badge" class="demo-mode-badge" hidden>DEMO</span>
+          <span id="study-mode-badge" class="study-mode-badge mode-focus" aria-live="polite">⚡ Focus Mode</span>
+        </div>
+
+        <div class="navbar-toolbar">
+          <div class="navbar-control-cluster" aria-label="Layout controls">
+            <button
+              class="nav-btn nav-btn-panel"
+              id="btn-navbar-sidebar"
+              type="button"
+              aria-controls="sidebar"
+              aria-expanded="true"
+              aria-label="Hide study controls"
+            >
+              Hide Controls
+            </button>
+            <button
+              class="nav-btn nav-btn-panel"
+              id="btn-navbar-panel"
+              type="button"
+              aria-controls="right-panel"
+              aria-expanded="true"
+              aria-label="Hide insights panel"
+            >
+              Hide Insights
+            </button>
+          </div>
+
+          <div class="navbar-tool-cluster" aria-label="Study utilities">
+            <button id="btn-demo" class="navbar-demo-button nav-btn nav-btn-emphasis" type="button" aria-pressed="false" aria-label="Toggle demo mode">
+              Demo Mode
+            </button>
+            <button class="nav-btn nav-btn-secondary" id="btn-shortcuts" type="button" aria-label="Keyboard shortcuts (press question mark)">
+              ⌨ Shortcuts
+            </button>
+            <button class="nav-btn nav-btn-secondary" id="btn-tour" type="button" aria-label="Start guided tour">◎ Tour</button>
+          </div>
+
+          <div class="navbar-session-cluster" aria-label="Session controls">
+            <button class="nav-btn nav-btn-primary" id="btn-end-session" type="button" aria-label="End study session">
+              Finish Session
+            </button>
+            <button class="nav-btn nav-btn-secondary nav-btn-danger" id="btn-reset-session" type="button" aria-label="Reset saved session data">
+              Reset
+            </button>
+            <span id="demo-badge" class="demo-mode-badge" hidden>DEMO</span>
+          </div>
+        </div>
       </div>
     </header>
 
@@ -112,6 +145,8 @@
       <div class="calibration-fill" id="calibration-fill" style="width: 0%;"></div>
       <div class="calibration-label" id="calibration-label">Calibrating to your baseline... 0%</div>
     </div>
+
+    <div id="layout-backdrop" class="layout-backdrop" hidden aria-hidden="true"></div>
 
     <div id="dashboard-layout" class="dashboard-layout">
       <aside
@@ -124,13 +159,13 @@
           <h2 id="left-sidebar-title" class="left-sidebar-title">Study Controls</h2>
           <button
             id="btn-toggle-sidebar"
-            class="panel-toggle-button"
+            class="panel-toggle-button panel-toggle-button-inline"
             type="button"
             aria-controls="sidebar"
             aria-expanded="true"
-            aria-label="Collapse sidebar"
+            aria-label="Hide sidebar"
           >
-            Toggle Sidebar
+            Hide
           </button>
         </div>
 
@@ -185,6 +220,7 @@
                   id="progress-ring-button-biology"
                   class="progress-ring-button"
                   type="button"
+                  data-subject="Biology"
                   aria-label="Biology progress 0 percent"
                 >
                   <span class="progress-ring-pulse"></span>
@@ -196,7 +232,7 @@
                 </button>
               </li>
               <li id="progress-item-physics" class="progress-ring-item">
-                <button id="progress-ring-button-physics" class="progress-ring-button" type="button" aria-label="Physics progress 0 percent">
+                <button id="progress-ring-button-physics" class="progress-ring-button" type="button" data-subject="Physics" aria-label="Physics progress 0 percent">
                   <span class="progress-ring-pulse"></span>
                   <svg id="progress-ring-physics" class="mini-progress-ring" viewBox="0 0 48 48" role="img" aria-hidden="true">
                     <circle class="mini-progress-ring-track" cx="24" cy="24" r="18"></circle>
@@ -206,7 +242,7 @@
                 </button>
               </li>
               <li id="progress-item-history" class="progress-ring-item">
-                <button id="progress-ring-button-history" class="progress-ring-button" type="button" aria-label="History progress 0 percent">
+                <button id="progress-ring-button-history" class="progress-ring-button" type="button" data-subject="History" aria-label="History progress 0 percent">
                   <span class="progress-ring-pulse"></span>
                   <svg id="progress-ring-history" class="mini-progress-ring" viewBox="0 0 48 48" role="img" aria-hidden="true">
                     <circle class="mini-progress-ring-track" cx="24" cy="24" r="18"></circle>
@@ -216,7 +252,7 @@
                 </button>
               </li>
               <li id="progress-item-math" class="progress-ring-item">
-                <button id="progress-ring-button-math" class="progress-ring-button" type="button" aria-label="Math progress 0 percent">
+                <button id="progress-ring-button-math" class="progress-ring-button" type="button" data-subject="Math" aria-label="Math progress 0 percent">
                   <span class="progress-ring-pulse"></span>
                   <svg id="progress-ring-math" class="mini-progress-ring" viewBox="0 0 48 48" role="img" aria-hidden="true">
                     <circle class="mini-progress-ring-track" cx="24" cy="24" r="18"></circle>
@@ -226,7 +262,7 @@
                 </button>
               </li>
               <li id="progress-item-literature" class="progress-ring-item">
-                <button id="progress-ring-button-literature" class="progress-ring-button" type="button" aria-label="Literature progress 0 percent">
+                <button id="progress-ring-button-literature" class="progress-ring-button" type="button" data-subject="Literature" aria-label="Literature progress 0 percent">
                   <span class="progress-ring-pulse"></span>
                   <svg id="progress-ring-literature" class="mini-progress-ring" viewBox="0 0 48 48" role="img" aria-hidden="true">
                     <circle class="mini-progress-ring-track" cx="24" cy="24" r="18"></circle>
@@ -334,13 +370,13 @@
           <h2 id="right-panel-title" class="right-panel-title">Insights</h2>
           <button
             id="btn-toggle-panel"
-            class="panel-toggle-button"
+            class="panel-toggle-button panel-toggle-button-inline"
             type="button"
             aria-controls="right-panel"
             aria-expanded="true"
-            aria-label="Collapse insights panel"
+            aria-label="Hide insights panel"
           >
-            Toggle Panel
+            Hide
           </button>
         </div>
 

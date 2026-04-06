@@ -20,10 +20,13 @@
     const scoreHistory = [];
 
     const body = document.body;
+    const layoutBackdrop = document.getElementById("layout-backdrop");
     const timerDisplay = document.getElementById("session-timer");
     const notesField = document.getElementById("study-notes");
     const demoToggleButton = document.getElementById("btn-demo");
     const demoBadge = document.getElementById("demo-badge");
+    const navbarSidebarButton = document.getElementById("btn-navbar-sidebar");
+    const navbarPanelButton = document.getElementById("btn-navbar-panel");
     const shortcutModal = document.getElementById("shortcut-modal");
     const researchOverlay = document.getElementById("research-overlay");
     const quickSheet = document.getElementById("quick-actions-sheet");
@@ -62,6 +65,7 @@
     wireCustomEvents();
     updateTopicPillCounts();
     syncPanelButtonStates();
+    observeLayoutState();
     startRealPolling();
     initializeWelcome();
     analytics.logEvent("card_seen", { subject: content.getCurrentCard()?.subject || null });
@@ -119,6 +123,17 @@
       analytics,
       tour
     };
+
+    function observeLayoutState() {
+      const observer = new MutationObserver(() => {
+        syncPanelButtonStates();
+      });
+
+      observer.observe(body, {
+        attributes: true,
+        attributeFilter: ["class"]
+      });
+    }
 
     function startSessionTimer() {
       timerIntervalId = window.setInterval(() => {
@@ -191,6 +206,8 @@
       document.getElementById("btn-skip")?.addEventListener("click", () => content.nextCard());
       document.getElementById("btn-toggle-sidebar")?.addEventListener("click", toggleSidebar);
       document.getElementById("btn-toggle-panel")?.addEventListener("click", togglePanel);
+      navbarSidebarButton?.addEventListener("click", toggleSidebar);
+      navbarPanelButton?.addEventListener("click", togglePanel);
       document.getElementById("btn-mobile-menu")?.addEventListener("click", toggleSidebar);
       document.getElementById("btn-mobile-panel")?.addEventListener("click", togglePanel);
       document.getElementById("btn-sheet-flip")?.addEventListener("click", () => content.flipCard());
@@ -222,6 +239,11 @@
         quickSheetFab.setAttribute("aria-expanded", String(open));
         quickSheetFab.textContent = open ? "✕" : "☰";
       });
+
+      layoutBackdrop?.addEventListener("click", () => {
+        closeCompactPanels();
+        syncPanelButtonStates();
+      });
     }
 
     function wireTopicPills() {
@@ -229,6 +251,21 @@
         button.addEventListener("click", () => {
           const subject = button.dataset.topic || "";
           content.filterBySubject(subject === "All" ? null : subject);
+          if (isCompactViewport()) {
+            closeCompactPanels();
+            syncPanelButtonStates();
+          }
+        });
+      });
+
+      document.querySelectorAll(".progress-ring-button[data-subject]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const subject = button.dataset.subject || "";
+          content.filterBySubject(subject || null);
+          if (isCompactViewport()) {
+            closeCompactPanels();
+            syncPanelButtonStates();
+          }
         });
       });
     }
@@ -560,7 +597,9 @@
       if (isCompactViewport()) {
         const isOpen = !body.classList.contains("sidebar-open");
         body.classList.toggle("sidebar-open", isOpen);
-        body.classList.toggle("sidebar-hidden", !isOpen);
+        if (isOpen) {
+          body.classList.remove("right-panel-open");
+        }
       } else {
         body.classList.toggle("sidebar-hidden");
       }
@@ -571,7 +610,9 @@
       if (isCompactViewport()) {
         const isOpen = !body.classList.contains("right-panel-open");
         body.classList.toggle("right-panel-open", isOpen);
-        body.classList.toggle("panel-hidden", !isOpen);
+        if (isOpen) {
+          body.classList.remove("sidebar-open");
+        }
       } else {
         body.classList.toggle("panel-hidden");
       }
@@ -583,17 +624,49 @@
     }
 
     function syncPanelButtonStates() {
+      const calmModeActive = body.classList.contains("calm-mode");
       const sidebarExpanded = isCompactViewport()
         ? body.classList.contains("sidebar-open")
-        : !body.classList.contains("sidebar-hidden");
+        : !calmModeActive && !body.classList.contains("sidebar-hidden");
       const panelExpanded = isCompactViewport()
         ? body.classList.contains("right-panel-open")
-        : !body.classList.contains("panel-hidden");
+        : !calmModeActive && !body.classList.contains("panel-hidden");
 
       document.getElementById("btn-toggle-sidebar")?.setAttribute("aria-expanded", String(sidebarExpanded));
       document.getElementById("btn-mobile-menu")?.setAttribute("aria-expanded", String(sidebarExpanded));
+      navbarSidebarButton?.setAttribute("aria-expanded", String(sidebarExpanded));
       document.getElementById("btn-toggle-panel")?.setAttribute("aria-expanded", String(panelExpanded));
       document.getElementById("btn-mobile-panel")?.setAttribute("aria-expanded", String(panelExpanded));
+      navbarPanelButton?.setAttribute("aria-expanded", String(panelExpanded));
+
+      setToggleButtonState(
+        document.getElementById("btn-toggle-sidebar"),
+        sidebarExpanded,
+        "Hide",
+        "Show",
+        "sidebar"
+      );
+      setToggleButtonState(
+        document.getElementById("btn-toggle-panel"),
+        panelExpanded,
+        "Hide",
+        "Show",
+        "insights panel"
+      );
+      setToggleButtonState(
+        navbarSidebarButton,
+        sidebarExpanded,
+        "Hide Controls",
+        "Show Controls",
+        "study controls"
+      );
+      setToggleButtonState(
+        navbarPanelButton,
+        panelExpanded,
+        "Hide Insights",
+        "Show Insights",
+        "insights panel"
+      );
 
       if (!isCompactViewport()) {
         body.classList.remove("sidebar-open", "right-panel-open");
@@ -602,6 +675,10 @@
           quickSheetFab.setAttribute("aria-expanded", "false");
           quickSheetFab.textContent = "☰";
         }
+      }
+
+      if (layoutBackdrop) {
+        layoutBackdrop.hidden = !(isCompactViewport() && (sidebarExpanded || panelExpanded));
       }
     }
 
@@ -616,6 +693,27 @@
         quickSheetFab.setAttribute("aria-expanded", "false");
         quickSheetFab.textContent = "☰";
       }
+
+      closeCompactPanels();
+      syncPanelButtonStates();
+    }
+
+    function closeCompactPanels() {
+      if (!isCompactViewport()) {
+        return;
+      }
+
+      body.classList.remove("sidebar-open", "right-panel-open");
+    }
+
+    function setToggleButtonState(button, expanded, openLabel, closedLabel, contextLabel) {
+      if (!button) {
+        return;
+      }
+
+      button.textContent = expanded ? openLabel : closedLabel;
+      button.setAttribute("aria-label", (expanded ? openLabel : closedLabel) + " " + contextLabel);
+      button.classList.toggle("is-active", expanded);
     }
 
     function clamp(value, min = 0, max = 100) {

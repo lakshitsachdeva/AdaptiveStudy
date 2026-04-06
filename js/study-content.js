@@ -459,6 +459,17 @@
         button.classList.toggle("is-active", active);
         button.setAttribute("aria-pressed", active ? "true" : "false");
       }
+
+      for (const subject of SUBJECTS) {
+        const progressButton = this.progressElements[subject]?.button;
+        if (!progressButton) {
+          continue;
+        }
+
+        const selected = Boolean(this.subjectFilter && subject === this.subjectFilter);
+        progressButton.classList.toggle("is-selected", selected);
+        progressButton.setAttribute("aria-pressed", selected ? "true" : "false");
+      }
     }
 
     getAllowedDifficulties() {
