@@ -860,7 +860,7 @@
         return;
       }
 
-      const nextHidden = navbarOverflowMenu.hidden;
+      const nextHidden = !navbarOverflowMenu.hidden;
       navbarOverflowMenu.hidden = nextHidden;
       navbarMenuButton.setAttribute("aria-expanded", String(!nextHidden));
     }
