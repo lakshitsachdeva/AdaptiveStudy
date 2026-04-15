@@ -400,6 +400,10 @@ p {
   box-shadow: 0 18px 40px rgba(44, 44, 44, 0.12);
 }
 
+.navbar-overflow-menu[hidden] {
+  display: none !important;
+}
+
 .nav-btn-menu {
   justify-content: flex-start;
   width: 100%;

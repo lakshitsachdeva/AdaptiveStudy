@@ -10,6 +10,8 @@
       this.status = document.getElementById("chat-status");
       this.history = [];
       this.pending = false;
+      this.apiAvailable = false;
+      this.apiProbeComplete = false;
       this.localEnvironment =
         window.location.hostname === "localhost" ||
         window.location.hostname === "127.0.0.1" ||
@@ -20,14 +22,41 @@
       }
 
       if (this.localEnvironment) {
-        this.setBusyState(false, "Local study helper active. Gemini is only used on the deployed app.");
+        this.setBusyState(false, "Checking for a local chat API. Falling back to the built-in study helper if needed.");
         this.input.placeholder = "Ask for summaries, mnemonics, or help with the current card.";
+        this.probeLocalApi();
+      } else {
+        this.apiAvailable = true;
+        this.apiProbeComplete = true;
       }
 
       this.form.addEventListener("submit", (event) => {
         event.preventDefault();
         this.sendMessage();
       });
+    }
+
+    async probeLocalApi() {
+      try {
+        const response = await fetch("/api/chat", {
+          method: "OPTIONS"
+        });
+
+        if (response.ok || response.status === 204 || response.status === 405) {
+          this.apiAvailable = true;
+          this.apiProbeComplete = true;
+          this.setBusyState(false, "Local Gemini API detected. Rate limits still apply.");
+          this.input.placeholder = "Ask your study assistant anything about the current topic.";
+          return;
+        }
+      } catch (error) {
+        // Fall through to local helper mode.
+      }
+
+      this.apiAvailable = false;
+      this.apiProbeComplete = true;
+      this.setBusyState(false, "Local study helper active. To use Gemini locally, run `vercel dev` with GEMINI_API_KEY.");
+      this.input.placeholder = "Ask for summaries, mnemonics, or help with the current card.";
     }
 
     async sendMessage() {
@@ -37,14 +66,16 @@
         return;
       }
 
+      const useApi = this.apiAvailable;
+
       this.pending = true;
-      this.setBusyState(true, this.localEnvironment ? "Thinking locally..." : "Sending...");
+      this.setBusyState(true, useApi ? "Sending..." : "Thinking locally...");
       this.appendMessage("user", message);
       this.input.value = "";
 
       const assistantPlaceholder = this.appendMessage("assistant", "Thinking...");
 
-      if (this.localEnvironment) {
+      if (!useApi) {
         window.setTimeout(() => {
           const reply = this.generateLocalReply(message);
           assistantPlaceholder.querySelector("p").textContent = reply;
@@ -97,10 +128,23 @@
           ? "Guard active. " + data.remaining + " requests left in the current window."
           : "Short replies only. Cooldown enabled.");
       } catch (error) {
-        assistantPlaceholder.classList.add("chat-message-warning");
-        assistantPlaceholder.querySelector("p").textContent =
-          "Network issue. If you just deployed, add the Gemini key in Vercel first.";
-        this.setBusyState(false, "Unable to reach the chat endpoint.");
+        if (this.localEnvironment) {
+          const reply = this.generateLocalReply(message);
+          assistantPlaceholder.querySelector("p").textContent = reply;
+          assistantPlaceholder.classList.add("chat-message-warning");
+          this.history.push(
+            { role: "user", content: message },
+            { role: "assistant", content: reply }
+          );
+          this.history = this.history.slice(-12);
+          this.apiAvailable = false;
+          this.setBusyState(false, "Local API was unavailable, so the built-in helper answered instead.");
+        } else {
+          assistantPlaceholder.classList.add("chat-message-warning");
+          assistantPlaceholder.querySelector("p").textContent =
+            "Network issue. If you just deployed, add the Gemini key in Vercel first.";
+          this.setBusyState(false, "Unable to reach the chat endpoint.");
+        }
       } finally {
         this.pending = false;
       }

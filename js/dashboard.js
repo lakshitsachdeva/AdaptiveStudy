@@ -351,7 +351,11 @@
         closeNavbarMenu();
         toggleDemoMode();
       });
-      navbarMenuButton?.addEventListener("click", toggleNavbarMenu);
+      navbarMenuButton?.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        toggleNavbarMenu();
+      });
 
       quickSheetFab?.addEventListener("click", () => {
         if (!quickSheet) {
@@ -380,6 +384,12 @@
         }
 
         if (!navbarOverflowMenu.contains(target) && !navbarMenuButton.contains(target)) {
+          closeNavbarMenu();
+        }
+      });
+
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
           closeNavbarMenu();
         }
       });
