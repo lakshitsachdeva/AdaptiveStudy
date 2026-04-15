@@ -20,9 +20,8 @@
       }
 
       if (this.localEnvironment) {
-        this.setBusyState(true, "Chat is disabled on localhost. Use the deployed app for Gemini responses.");
-        this.input.placeholder = "Chat is available on the deployed Vercel version.";
-        return;
+        this.setBusyState(false, "Local study helper active. Gemini is only used on the deployed app.");
+        this.input.placeholder = "Ask for summaries, mnemonics, or help with the current card.";
       }
 
       this.form.addEventListener("submit", (event) => {
@@ -39,11 +38,26 @@
       }
 
       this.pending = true;
-      this.setBusyState(true, "Sending...");
+      this.setBusyState(true, this.localEnvironment ? "Thinking locally..." : "Sending...");
       this.appendMessage("user", message);
       this.input.value = "";
 
       const assistantPlaceholder = this.appendMessage("assistant", "Thinking...");
+
+      if (this.localEnvironment) {
+        window.setTimeout(() => {
+          const reply = this.generateLocalReply(message);
+          assistantPlaceholder.querySelector("p").textContent = reply;
+          this.history.push(
+            { role: "user", content: message },
+            { role: "assistant", content: reply }
+          );
+          this.history = this.history.slice(-12);
+          this.pending = false;
+          this.setBusyState(false, "Local study helper active. No API cost on localhost.");
+        }, 260);
+        return;
+      }
 
       try {
         const payload = {
@@ -100,8 +114,51 @@
       return {
         currentSubject: currentCard?.subject || null,
         currentQuestion: currentCard?.question || null,
+        currentAnswer: currentCard?.answer || null,
         loadState
       };
+    }
+
+    generateLocalReply(message) {
+      const context = this.buildContext();
+      const prompt = message.toLowerCase();
+      const subject = context.currentSubject || "your current subject";
+      const question = context.currentQuestion || "the current flashcard";
+      const answer = context.currentAnswer || "No answer is loaded yet.";
+
+      if (/(answer|solution|what is it|explain this card|current card)/.test(prompt)) {
+        return "For " + subject + ", the current card asks: " + question + " Answer: " + answer;
+      }
+
+      if (/(summary|summarise|summarize|short note|quick note)/.test(prompt)) {
+        return "Quick summary for " + subject + ": " + answer + " Focus on the key idea first, then connect it back to the question: " + question;
+      }
+
+      if (/(mnemonic|memory trick|remember)/.test(prompt)) {
+        return "Memory trick: turn the key terms in this answer into a tiny phrase you can repeat aloud. For this card, try anchoring these words: " + this.extractKeywords(answer).join(", ") + ".";
+      }
+
+      if (/(quiz me|test me|ask me)/.test(prompt)) {
+        return "Try this recall prompt without looking: " + question + " When you're ready, say 'check answer' and compare with: " + answer;
+      }
+
+      if (/(confused|don't understand|dont understand|explain|help)/.test(prompt)) {
+        return "Here is the simple version for " + subject + ": " + answer + " If you want, ask me for a mnemonic, a one-line summary, or a practice question on this same topic.";
+      }
+
+      if (/(newton|force|acceleration)/.test(prompt)) {
+        return "Newton's Second Law says F = ma. That means force equals mass times acceleration, so bigger mass or bigger acceleration means more force is needed.";
+      }
+
+      return "I can help locally with the current card. Ask for a summary, explanation, mnemonic, or practice prompt for " + subject + ". Current card: " + question;
+    }
+
+    extractKeywords(answer) {
+      return String(answer)
+        .replace(/[^a-zA-Z0-9\s]/g, " ")
+        .split(/\s+/)
+        .filter((word) => word.length > 4)
+        .slice(0, 4);
     }
 
     appendMessage(role, text) {

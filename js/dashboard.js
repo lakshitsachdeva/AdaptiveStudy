@@ -105,10 +105,6 @@
       closeNavbarMenu();
     });
 
-    if (chatSection && isLocal) {
-      chatSection.hidden = true;
-    }
-
     window.addEventListener("resize", syncPanelButtonStates);
     if (!isSubmissionSafe) {
       window.addEventListener("scroll", () => {
@@ -185,10 +181,14 @@
       }
     }, 3000);
 
-    if (!isLocal && typeof window.AdaptiveStudyChatbot === "function") {
+    if (chatSection) {
+      chatSection.hidden = false;
+    }
+
+    if (typeof window.AdaptiveStudyChatbot === "function") {
       window.setTimeout(() => {
         chat = new window.AdaptiveStudyChatbot();
-      }, 5000);
+      }, isSubmissionSafe ? 900 : 5000);
     }
 
     function observeLayoutState() {
